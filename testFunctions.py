@@ -10,3 +10,9 @@ def assignFunc():
 def nimeshSays():
 	print("Drink more water...")
 
+def sanjib():
+    s=0.0
+    for i in range(10):
+        s+=1
+    return s
+
