@@ -4,7 +4,7 @@ def printfun():
 
 def assignFunc():
     for ind in range(100_000):
-        a = ind
+        a = ind + 1
     return a
 
 def nimeshSays():
