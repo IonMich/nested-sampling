@@ -60,3 +60,74 @@ if dim==3:
     plt.plot(positions[0],positions[1],'.')
     plt.xlim([-10,10])
     plt.ylim([-10,10])
+    
+    
+class LightHouse:
+    """
+    
+    """
+    def __init__(self,unitArray):
+        assert(len(unitArray)==dim)
+        self.update(unitArray)
+        self.logWt=None     # log(Weight), adding to SUM(Wt) = Evidence Z
+        
+    def update(self,unitArray):
+        """
+        
+        """
+        assert(len(unitArray)==dim)
+        self.unitCoords = np.zeros(dim)
+        for i , unitSample in enumerate(unitArray):
+            self.unitCoords[i] = unitSample  # Uniform-prior controlling parameter for position
+        self.mapUnitToXYZ()
+        self.assignlogL()
+        
+    def mapUnitToXYZ(self):
+        """
+        go from unit coordinates to lighthouse position 
+        """
+        self.Coords = np.zeros(dim)
+        for i in range(transverseDim):
+            self.Coords[i] = transverse(self.unitCoords[i])
+        self.Coords[-1] = depth(self.unitCoords[-1])
+            
+    def assignlogL(self):
+        """
+        assign the attribute
+        # logLikelihood = ln Prob(data | position)
+        """
+        self.logL = logLhoodLHouse(self.Coords)
+    
+    def copy(self):
+        """
+        
+        """
+        return LightHouse(self.unitCoords)
+
+
+def logLhoodLHouse(lightHCoords):    
+    """     
+    logLikelihood function
+     Easterly position
+     Northerly position
+    """
+    x = lightHCoords[0]
+    z = lightHCoords[-1]
+    DX = positions[0]
+    
+    if dim ==2:
+        logL = np.sum( np.log( (z / np.pi) / ((DX - x)*(DX - x) + z*z) ) )
+    elif dim==3:
+        y = lightHCoords[1]
+        DY = positions[1]
+        logL = np.sum( np.log( (z / np.pi**2) / ((DX - x)*(DX - x) + (DY - y)*(DY - y) + z*z) / np.sqrt((DX - x)*(DX - x) + (DY - y)*(DY - y)) ) )
+    return logL
+
+def sample_from_prior():
+    """
+    
+    
+    """
+    unitCoords = np.random.uniform(size=dim)
+    Obj = LightHouse(unitCoords)
+    return Obj
