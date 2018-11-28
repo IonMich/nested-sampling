@@ -17,7 +17,7 @@ import numpy as np
 
 def generatePositions(lightHCoords, samples=64):
     """
-    
+
     """
     x=lightHCoords[0]
     z=lightHCoords[-1]
@@ -30,17 +30,17 @@ def generatePositions(lightHCoords, samples=64):
         thetaArray = np.random.uniform(0,np.pi/2,samples)
         flashesPositionsX = z * np.tan(thetaArray)
         flashesPositionsY = np.zeros(samples)
-        
+
         phiArray = np.random.uniform(0,2*np.pi,samples)
         flashesPositionsX , flashesPositionsY = x + np.cos(phiArray)*(flashesPositionsX) - np.sin(phiArray)*(flashesPositionsY),\
                                                 y + np.sin(phiArray)*(flashesPositionsX) + np.cos(phiArray)*(flashesPositionsY)
-    
+
     return flashesPositionsX , flashesPositionsY
 
 n = 100              # number of objects
 max_iter = 2000     # number of iterations
 dim = 3
-transverseDim = dim - 1 
+transverseDim = dim - 1
 
 assert(dim==2 or dim==3)
 
@@ -50,7 +50,7 @@ N = 4000;
 positions = generatePositions([1.25,1.10,0.70], samples=N)
 
 #map of unit domain to the spatial domain
-transverse = lambda unit : 4.0 * unit - 2.0 
+transverse = lambda unit : 4.0 * unit - 2.0
 depth = lambda unit : 2.0 * unit
 
 plt.figure('Flashes (Data)')
@@ -60,20 +60,20 @@ if dim==3:
     plt.plot(positions[0],positions[1],'.')
     plt.xlim([-10,10])
     plt.ylim([-10,10])
-    
-    
+
+
 class LightHouse:
     """
-    
+
     """
     def __init__(self,unitArray):
         assert(len(unitArray)==dim)
         self.update(unitArray)
         self.logWt=None     # log(Weight), adding to SUM(Wt) = Evidence Z
-        
+
     def update(self,unitArray):
         """
-        
+
         """
         assert(len(unitArray)==dim)
         self.unitCoords = np.zeros(dim)
@@ -81,32 +81,32 @@ class LightHouse:
             self.unitCoords[i] = unitSample  # Uniform-prior controlling parameter for position
         self.mapUnitToXYZ()
         self.assignlogL()
-        
+
     def mapUnitToXYZ(self):
         """
-        go from unit coordinates to lighthouse position 
+        go from unit coordinates to lighthouse position
         """
         self.Coords = np.zeros(dim)
         for i in range(transverseDim):
             self.Coords[i] = transverse(self.unitCoords[i])
         self.Coords[-1] = depth(self.unitCoords[-1])
-            
+
     def assignlogL(self):
         """
         assign the attribute
         # logLikelihood = ln Prob(data | position)
         """
         self.logL = logLhoodLHouse(self.Coords)
-    
+
     def copy(self):
         """
-        
+
         """
         return LightHouse(self.unitCoords)
 
 
-def logLhoodLHouse(lightHCoords):    
-    """     
+def logLhoodLHouse(lightHCoords):
+    """
     logLikelihood function
      Easterly position
      Northerly position
@@ -114,7 +114,7 @@ def logLhoodLHouse(lightHCoords):
     x = lightHCoords[0]
     z = lightHCoords[-1]
     DX = positions[0]
-    
+
     if dim ==2:
         logL = np.sum( np.log( (z / np.pi) / ((DX - x)*(DX - x) + z*z) ) )
     elif dim==3:
@@ -125,9 +125,45 @@ def logLhoodLHouse(lightHCoords):
 
 def sample_from_prior():
     """
-    
-    
+
+
     """
     unitCoords = np.random.uniform(size=dim)
     Obj = LightHouse(unitCoords)
     return Obj
+
+def explore(Obj,logLstar):
+    """
+    # Evolve object within likelihood constraint
+    # Object being evolved
+    # Likelihood constraint L > Lstar
+    """
+    ret =  Obj.copy()
+    step = 0.1;   # Initial guess suitable step-size in (0,1)
+    accept = 0;   # # MCMC acceptances
+    reject = 0;   # # MCMC rejections
+    a = 1.0;
+    Try = Obj.copy()          # Trial object
+    for m in range(20):  # pre-judged number of steps
+
+        # Trial object u-w step
+        unitCoords_New = ret.unitCoords + step * (2.0*np.random.uniform(size=dim) - 1.0);  # |move| < step
+        unitCoords_New -= np.floor(unitCoords_New);      # wraparound to stay within (0,1)
+        Try.update(unitCoords_New)
+
+        # Accept if and only if within hard likelihood constraint
+        if Try.logL > logLstar:
+            ret = Try.copy()
+            accept+=1
+        else:
+            reject+=1
+
+        # Refine step-size to let acceptance ratio converge around 50%
+        if( accept > reject ):
+            step *= np.exp(a / accept);
+            a /= 1.5
+        if( accept < reject ):
+            step /= np.exp(a / reject);
+            a *= 1.5
+#    print(logLstar, accept)
+    return ret
