@@ -167,3 +167,54 @@ def explore(Obj,logLstar):
             a *= 1.5
 #    print(logLstar, accept)
     return ret
+
+def cornerplots(posteriors):
+    """
+    
+    """
+    transverseDomain = (-2,2)
+    depthDomain = (0,2)
+    domains = sum(((transverseDomain,)*transverseDim,(depthDomain,)),())
+    plt.figure('posteriors')
+    for i in range(dim):
+        plt.subplot(dim,dim,i*dim+i+1)
+        plt.hist(posteriors[i],500,range = domains[i])
+        
+        # joint posteriors
+        for j in range(i):
+            subPltIndex = i*dim + 1 + j
+            plt.subplot(dim,dim,subPltIndex)
+            plt.plot(posteriors[j],posteriors[i],'.')
+    
+def process_results(results):
+    """
+    
+    
+    """
+    avgCoords = [0.0,]*dim # first moments of coordinates
+    sqrCoords = [0.0,]*dim # second moments of coordinates
+    ni = results['num_iterations']
+    samples = results['samples']
+    logZ = results['logZ']
+    posteriors = [ [] for i in range(dim) ]
+    for j in range(dim):
+        for i in range(ni):
+            w = np.exp(samples[i].logWt - logZ); # Proportional weight
+            posteriors[j].append(samples[i].Coords[j])
+            avgCoords[j] += w * samples[i].Coords[j];
+            sqrCoords[j] += w * samples[i].Coords[j] * samples[i].Coords[j];
+    cornerplots(posteriors)
+    
+    logZ_sdev = results['logZ_sdev']
+#    H = results['info_nats']
+#    H_sdev = results['info_sdev']
+    print("# iterates: %i"%ni)
+    print("Evidence: ln(Z) = %g +- %g"%(logZ,logZ_sdev))
+#    print("Information: H  = %g nats = %g bits"%(H,H/log(2.0)))
+    print("mean(x) = {:9.4f}, stddev(x) = {:9.4f}".format(avgCoords[0], np.sqrt(sqrCoords[0]-avgCoords[0]*avgCoords[0])));
+    if dim ==3: print("mean(y) = {:9.4f}, stddev(y) = {:9.4f}".format(avgCoords[1], np.sqrt(sqrCoords[1]-avgCoords[1]*avgCoords[1])));
+    print("mean(z) = {:9.4f}, stddev(z) = {:9.4f}".format(avgCoords[-1], np.sqrt(sqrCoords[-1]-avgCoords[-1]*avgCoords[-1])));
+
+if __name__ == "__main__":
+    results = nested_sampling(n, max_iter, sample_from_prior, explore)
+    process_results(results)
