@@ -62,47 +62,63 @@ if dim==3:
     plt.ylim([-10,10])
 
 
-class LightHouse:
+class LHouses():
     """
-
+    TESTS:
+    put the following at the begining of the if name==main statement
+    
+    myLH = LightHouse(np.array([0.2,0.3,0.4]) )
+    myLHpair = LHouses(np.array([0.2,0.3,0.4]) )
+    myLHpair2 = LHouses(np.array([[0.2,0.3,0.4],[0.5,0.6,0.8]]) )
+    print(myLH.__dict__)
+    print(myLHpair.__dict__)
+    print(myLHpair2.__dict__)
     """
     def __init__(self,unitArray):
-        assert(len(unitArray)==dim)
+        """
+        for 2 lighthouses in 3d, unitArray should be a (2,3) array
+        """
+        configDim = np.size(unitArray)
+        assert(configDim%dim==0 and configDim>1)
         self.update(unitArray)
         self.logWt=None     # log(Weight), adding to SUM(Wt) = Evidence Z
-
+        
     def update(self,unitArray):
         """
 
         """
-        assert(len(unitArray)==dim)
-        self.unitCoords = np.zeros(dim)
-        for i , unitSample in enumerate(unitArray):
-            self.unitCoords[i] = unitSample  # Uniform-prior controlling parameter for position
+        configDim = np.size(unitArray)
+        assert(configDim % dim == 0 and configDim>1)
+        self.unitCoords = np.zeros(unitArray.shape)
+        for indexTuple , unitSample in np.ndenumerate(unitArray):
+            self.unitCoords[indexTuple] = unitSample  # Uniform-prior controlling parameter for position
         self.mapUnitToXYZ()
         self.assignlogL()
 
     def mapUnitToXYZ(self):
         """
-        go from unit coordinates to lighthouse position
+        go from unit coordinates to lighthouse position(s)
         """
-        self.Coords = np.zeros(dim)
-        for i in range(transverseDim):
-            self.Coords[i] = transverse(self.unitCoords[i])
-        self.Coords[-1] = depth(self.unitCoords[-1])
+        self.Coords = np.zeros(self.unitCoords.shape)
+        for indexTuple , unitSample in np.ndenumerate(self.unitCoords):
+            if indexTuple[-1] != dim-1:
+                self.Coords[indexTuple] = transverse(self.unitCoords[indexTuple])
+            else:
+                self.Coords[indexTuple] = depth(self.unitCoords[indexTuple])
 
     def assignlogL(self):
         """
         assign the attribute
         # logLikelihood = ln Prob(data | position)
         """
+#        assert(False) ## waiting for new LH function
         self.logL = logLhoodLHouse(self.Coords)
 
     def copy(self):
         """
 
         """
-        return LightHouse(self.unitCoords)
+        return LHouses(self.unitCoords) 
 
 
 def logLhoodLHouse(lightHCoords):
@@ -129,7 +145,7 @@ def sample_from_prior():
 
     """
     unitCoords = np.random.uniform(size=dim)
-    Obj = LightHouse(unitCoords)
+    Obj = LHouses(unitCoords)
     return Obj
 
 def explore(Obj,logLstar):
@@ -147,7 +163,7 @@ def explore(Obj,logLstar):
     for m in range(20):  # pre-judged number of steps
 
         # Trial object u-w step
-        unitCoords_New = ret.unitCoords + step * (2.0*np.random.uniform(size=dim) - 1.0);  # |move| < step
+        unitCoords_New = ret.unitCoords + step * (2.0*np.random.uniform(size=ret.unitCoords.shape) - 1.0);  # |move| < step
         unitCoords_New -= np.floor(unitCoords_New);      # wraparound to stay within (0,1)
         Try.update(unitCoords_New)
 
