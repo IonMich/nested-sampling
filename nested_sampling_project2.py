@@ -45,7 +45,7 @@ transverseDim = dim - 1
 assert(dim==2 or dim==3)
 
 # Number of flashes
-N = 4000;
+N = 4000
 #np.random.seed(0)
 positions = generatePositions([1.25,1.10,0.70], samples=N)
 
@@ -102,9 +102,9 @@ class LHouses():
         self.Coords = np.zeros(self.unitCoords.shape)
         for indexTuple , unitSample in np.ndenumerate(self.unitCoords):
             if indexTuple[-1] != dim-1:
-                self.Coords[indexTuple] = transverse(self.unitCoords[indexTuple])
+                self.Coords[indexTuple] = transverse(unitSample)
             else:
-                self.Coords[indexTuple] = depth(self.unitCoords[indexTuple])
+                self.Coords[indexTuple] = depth(unitSample)
 
     def assignlogL(self):
         """
@@ -155,16 +155,16 @@ def explore(Obj,logLstar):
     # Likelihood constraint L > Lstar
     """
     ret =  Obj.copy()
-    step = 0.1;   # Initial guess suitable step-size in (0,1)
-    accept = 0;   # # MCMC acceptances
-    reject = 0;   # # MCMC rejections
-    a = 1.0;
+    step = 0.1   # Initial guess suitable step-size in (0,1)
+    accept = 0   # # MCMC acceptances
+    reject = 0   # # MCMC rejections
+    a = 1.0
     Try = Obj.copy()          # Trial object
-    for m in range(20):  # pre-judged number of steps
+    for _ in range(20):  # pre-judged number of steps
 
         # Trial object u-w step
-        unitCoords_New = ret.unitCoords + step * (2.0*np.random.uniform(size=ret.unitCoords.shape) - 1.0);  # |move| < step
-        unitCoords_New -= np.floor(unitCoords_New);      # wraparound to stay within (0,1)
+        unitCoords_New = ret.unitCoords + step * (2.0*np.random.uniform(size=ret.unitCoords.shape) - 1.0)  # |move| < step
+        unitCoords_New -= np.floor(unitCoords_New)      # wraparound to stay within (0,1)
         Try.update(unitCoords_New)
 
         # Accept if and only if within hard likelihood constraint
@@ -176,10 +176,10 @@ def explore(Obj,logLstar):
 
         # Refine step-size to let acceptance ratio converge around 50%
         if( accept > reject ):
-            step *= np.exp(a / accept);
+            step *= np.exp(a / accept)
             a /= 1.5
         if( accept < reject ):
-            step /= np.exp(a / reject);
+            step /= np.exp(a / reject)
             a *= 1.5
 #    print(logLstar, accept)
     return ret
@@ -218,10 +218,10 @@ def process_results(results):
     logZ = results['logZ']
     posteriors = np.zeros(sum( ( shape, (ni,) ), () ) )
     for i in range(ni):
-        w = np.exp(samples[i].logWt - logZ); # Proportional weight
+        w = np.exp(samples[i].logWt - logZ) # Proportional weight
         coords = samples[i].Coords
-        avgCoords += w * coords;
-        sqrCoords += w * coords * coords;
+        avgCoords += w * coords
+        sqrCoords += w * coords * coords
         posteriors[...,i] = coords
     cornerplots(posteriors)
     
@@ -231,9 +231,9 @@ def process_results(results):
     print("# iterates: %i"%ni)
     print("Evidence: ln(Z) = %g +- %g"%(logZ,logZ_sdev))
 #    print("Information: H  = %g nats = %g bits"%(H,H/log(2.0)))
-    print("mean(x) = {:9.4f}, stddev(x) = {:9.4f}".format(avgCoords[0], np.sqrt(sqrCoords[0]-avgCoords[0]*avgCoords[0])));
-    if dim ==3: print("mean(y) = {:9.4f}, stddev(y) = {:9.4f}".format(avgCoords[1], np.sqrt(sqrCoords[1]-avgCoords[1]*avgCoords[1])));
-    print("mean(z) = {:9.4f}, stddev(z) = {:9.4f}".format(avgCoords[-1], np.sqrt(sqrCoords[-1]-avgCoords[-1]*avgCoords[-1])));
+    print("mean(x) = {:9.4f}, stddev(x) = {:9.4f}".format(avgCoords[0], np.sqrt(sqrCoords[0]-avgCoords[0]*avgCoords[0])))
+    if dim ==3: print("mean(y) = {:9.4f}, stddev(y) = {:9.4f}".format(avgCoords[1], np.sqrt(sqrCoords[1]-avgCoords[1]*avgCoords[1])))
+    print("mean(z) = {:9.4f}, stddev(z) = {:9.4f}".format(avgCoords[-1], np.sqrt(sqrCoords[-1]-avgCoords[-1]*avgCoords[-1])))
     return posteriors
 
 if __name__ == "__main__":
