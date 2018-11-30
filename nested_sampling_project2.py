@@ -186,39 +186,43 @@ def explore(Obj,logLstar):
 
 def cornerplots(posteriors):
     """
-    
+    NOTE: cornerplots converts (2,3,2000) shaped posterior to (6,2000) shaped posteriorFlat if we have 2 lighthouses
+    no effect for 1 LHouse
     """
+    pSize = posteriors[...,0].size # total number of posterior coordinates (3 for a single lhouse)
+    numLhouses = pSize//dim
+    posteriorsFlat = posteriors.reshape(pSize,posteriors.shape[-1])
     transverseDomain = (-2,2)
     depthDomain = (0,2)
-    domains = sum(((transverseDomain,)*transverseDim,(depthDomain,)),())
+    domains = sum( ((transverseDomain,)*transverseDim,(depthDomain,))*numLhouses, () )
     plt.figure('posteriors')
-    for i in range(dim):
-        plt.subplot(dim,dim,i*dim+i+1)
-        plt.hist(posteriors[i],500,range = domains[i])
-        
+    for i in range(pSize):
+        plt.subplot(pSize,pSize,i*pSize+i+1)
+        plt.hist(posteriorsFlat[i],500,range = domains[i])
         # joint posteriors
         for j in range(i):
-            subPltIndex = i*dim + 1 + j
-            plt.subplot(dim,dim,subPltIndex)
-            plt.plot(posteriors[j],posteriors[i],'.')
+            subPltIndex = i*pSize + 1 + j
+            plt.subplot(pSize,pSize,subPltIndex)
+            plt.plot(posteriorsFlat[j],posteriorsFlat[i],'.')
+    plt.show()
     
 def process_results(results):
     """
-    
-    
+    return posterior numpy array in shape (numlhouses,dim,ni)
     """
-    avgCoords = [0.0,]*dim # first moments of coordinates
-    sqrCoords = [0.0,]*dim # second moments of coordinates
     ni = results['num_iterations']
     samples = results['samples']
+    shape =  samples[0].Coords.shape
+    avgCoords = np.zeros(shape) # first moments of coordinates
+    sqrCoords = np.zeros(shape) # second moments of coordinates
     logZ = results['logZ']
-    posteriors = [ [] for i in range(dim) ]
-    for j in range(dim):
-        for i in range(ni):
-            w = np.exp(samples[i].logWt - logZ); # Proportional weight
-            posteriors[j].append(samples[i].Coords[j])
-            avgCoords[j] += w * samples[i].Coords[j];
-            sqrCoords[j] += w * samples[i].Coords[j] * samples[i].Coords[j];
+    posteriors = np.zeros(sum( ( shape, (ni,) ), () ) )
+    for i in range(ni):
+        w = np.exp(samples[i].logWt - logZ); # Proportional weight
+        coords = samples[i].Coords
+        avgCoords += w * coords;
+        sqrCoords += w * coords * coords;
+        posteriors[...,i] = coords
     cornerplots(posteriors)
     
     logZ_sdev = results['logZ_sdev']
@@ -230,7 +234,8 @@ def process_results(results):
     print("mean(x) = {:9.4f}, stddev(x) = {:9.4f}".format(avgCoords[0], np.sqrt(sqrCoords[0]-avgCoords[0]*avgCoords[0])));
     if dim ==3: print("mean(y) = {:9.4f}, stddev(y) = {:9.4f}".format(avgCoords[1], np.sqrt(sqrCoords[1]-avgCoords[1]*avgCoords[1])));
     print("mean(z) = {:9.4f}, stddev(z) = {:9.4f}".format(avgCoords[-1], np.sqrt(sqrCoords[-1]-avgCoords[-1]*avgCoords[-1])));
+    return posteriors
 
 if __name__ == "__main__":
     results = nested_sampling(n, max_iter, sample_from_prior, explore)
-    process_results(results)
+    posteriors = process_results(results)
