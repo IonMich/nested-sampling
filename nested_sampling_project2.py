@@ -43,19 +43,19 @@ def generatePositions(lightHCoords, samples_for_eachLH):
     
     return X,Y
 
-n = 100             # number of objects
-max_iter = 2000     # number of iterations
+n = 20             # number of objects
+max_iter = 4000     # number of iterations
 dim = 3
 transverseDim = dim - 1
-model_num_LH = 1
+model_num_LH = 2
 
 assert(dim==2 or dim==3)
 
 # Number of flashes
 N = 4000
 #np.random.seed(0)
-LHactualCoords=([[1.25,1.10,0.70]]) #Actual Coordinates of Light Houses
-positions = generatePositions(LHactualCoords, N)
+LHactualCoords=([[1.50,1.10,0.70],[-1.50,1.10,0.70]]) #Actual Coordinates of Light Houses
+flashesPositions = generatePositions(LHactualCoords, N)
 
 #map of unit domain to the spatial domain
 transverse = lambda unit : 4.0 * unit - 2.0
@@ -63,9 +63,9 @@ depth = lambda unit : 2.0 * unit
 
 plt.figure('Flashes (Data)')
 if dim==2:
-    plt.hist(positions[0],50,range = (-10, 10))
+    plt.hist(flashesPositions[0],50,range = (-10, 10))
 if dim==3:
-    plt.plot(positions[0],positions[1],'.')
+    plt.plot(flashesPositions[0],flashesPositions[1],'.')
     plt.xlim([-10,10])
     plt.ylim([-10,10])
 
@@ -129,22 +129,47 @@ class LHouses():
         return LHouses(self.unitCoords) 
 
 
+# def logLhoodLHouse(lightHCoords):
+#     """
+#     logLikelihood function
+#      Easterly position
+#      Northerly position
+#     """
+#     x = lightHCoords[0]
+#     z = lightHCoords[-1]
+#     DX = positions[0]
+
+#     if dim ==2:
+#         logL = np.sum( np.log( (z / np.pi) / ((DX - x)*(DX - x) + z*z) ) )
+#     elif dim==3:
+#         y = lightHCoords[1]
+#         DY = positions[1]
+#         logL = np.sum( np.log( (z / np.pi**2) / ((DX - x)*(DX - x) + (DY - y)*(DY - y) + z*z) / np.sqrt((DX - x)*(DX - x) + (DY - y)*(DY - y)) ) )
+#     return logL
+
 def logLhoodLHouse(lightHCoords):
     """
     logLikelihood function
      Easterly position
      Northerly position
     """
-    x = lightHCoords[0]
-    z = lightHCoords[-1]
-    DX = positions[0]
+    x = np.array( lightHCoords[...,0])
+    z = np.array(lightHCoords[...,-1])
+    DX = flashesPositions[0]
+    sumLikelihoodLH = 0
 
     if dim ==2:
-        logL = np.sum( np.log( (z / np.pi) / ((DX - x)*(DX - x) + z*z) ) )
+        logL = np.sum( np.log( np.sum((z / np.pi) / ((DX - x)*(DX - x) + z*z) ) ))
+
     elif dim==3:
-        y = lightHCoords[1]
-        DY = positions[1]
-        logL = np.sum( np.log( (z / np.pi**2) / ((DX - x)*(DX - x) + (DY - y)*(DY - y) + z*z) / np.sqrt((DX - x)*(DX - x) + (DY - y)*(DY - y)) ) )
+        y = np.array(lightHCoords[...,1])
+        DY = flashesPositions[1]
+        if np.sum(x.shape) == 0:
+            sumLikelihoodLH = (z / np.pi**2) / ((DX - x)*(DX - x) + (DY - y)*(DY - y) + z*z) / np.sqrt((DX - x)*(DX - x) + (DY - y)*(DY - y))
+        else:
+            for e in range(model_num_LH):
+                sumLikelihoodLH += (1/model_num_LH)* (z[e] / np.pi**2) / ((DX - x[e])*(DX - x[e]) + (DY - y[e])*(DY - y[e]) + z[e]*z[e]) / np.sqrt((DX - x[e])*(DX - x[e]) + (DY - y[e])*(DY - y[e]))
+        logL = np.sum( np.log(sumLikelihoodLH ))
     return logL
 
 def sample_from_prior():
@@ -200,51 +225,80 @@ def cornerplots(posteriors):
     """
     pSize = posteriors[...,0].size # total number of posterior coordinates (3 for a single lhouse)
     numLhouses = pSize//dim
-    posteriorsFlat = posteriors.reshape(pSize,posteriors.shape[-1])
+    # posteriorsFlat = posteriors.reshape(pSize,posteriors.shape[-1])
     transverseDomain = (-2,2)
     depthDomain = (0,2)
     domains = sum( ((transverseDomain,)*transverseDim,(depthDomain,))*numLhouses, () )
     plt.figure('posteriors')
     for i in range(pSize):
         plt.subplot(pSize,pSize,i*pSize+i+1)
-        plt.hist(posteriorsFlat[i],500,range = domains[i])
+        plt.hist(posteriors[i],100,range = domains[i])
         # joint posteriors
         for j in range(i):
             subPltIndex = i*pSize + 1 + j
             plt.subplot(pSize,pSize,subPltIndex)
-            plt.plot(posteriorsFlat[j],posteriorsFlat[i],'.')
+            plt.plot(posteriors[j],posteriors[i],'.')
+            plt.xlim((-10,10))
+            plt.ylim((-10,10))
     plt.show()
     
-def process_results(results):
-    """
-    return posterior numpy array in shape (numlhouses,dim,ni)
-    """
+def get_posteriors(results):
+    ni = results['num_iterations']
+    samples = results['samples']
+    shape =  samples[0].Coords.shape
+    posteriors = np.zeros(sum( ( shape, (ni,) ), () ) )
+    for i in range(ni):
+        coords = samples[i].Coords
+        posteriors[...,i] = coords
+    posteriors = posteriors.reshape((dim,model_num_LH*max_iter),order='A')
+    print(posteriors.shape)
+    return posteriors    
+
+def get_statistics(results):   
     ni = results['num_iterations']
     samples = results['samples']
     shape =  samples[0].Coords.shape
     avgCoords = np.zeros(shape) # first moments of coordinates
     sqrCoords = np.zeros(shape) # second moments of coordinates
     logZ = results['logZ']
-    posteriors = np.zeros(sum( ( shape, (ni,) ), () ) )
     for i in range(ni):
         w = np.exp(samples[i].logWt - logZ) # Proportional weight
         coords = samples[i].Coords
         avgCoords += w * coords
         sqrCoords += w * coords * coords
-        posteriors[...,i] = coords
-    cornerplots(posteriors)
+    
+    print("Num of Iterations: %i" %ni)
+    
+    meanX, sigmaX = avgCoords[0], np.sqrt(sqrCoords[0]-avgCoords[0]*avgCoords[0])
+    print("mean(x) = %f, stddev(x) = %f" %(meanX, sigmaX));
+    
+    if dim ==3: 
+        meanY, sigmaY = avgCoords[1], np.sqrt(sqrCoords[1]-avgCoords[1]*avgCoords[1])
+        print("mean(y) = %f, stddev(y) = %f" %(meanY, sigmaY));
+    
+    meanZ, sigmaZ = avgCoords[-1], np.sqrt(sqrCoords[-1]-avgCoords[-1]*avgCoords[-1])
+    print("mean(z) = %f, stddev(z) = %f" %(meanZ, sigmaZ));
     
     logZ_sdev = results['logZ_sdev']
-#    H = results['info_nats']
-#    H_sdev = results['info_sdev']
-    print("# iterates: %i"%ni)
     print("Evidence: ln(Z) = %g +- %g"%(logZ,logZ_sdev))
-#    print("Information: H  = %g nats = %g bits"%(H,H/log(2.0)))
-    print("mean(x) = {:9.4f}, stddev(x) = {:9.4f}".format(avgCoords[0], np.sqrt(sqrCoords[0]-avgCoords[0]*avgCoords[0])))
-    if dim ==3: print("mean(y) = {:9.4f}, stddev(y) = {:9.4f}".format(avgCoords[1], np.sqrt(sqrCoords[1]-avgCoords[1]*avgCoords[1])))
-    print("mean(z) = {:9.4f}, stddev(z) = {:9.4f}".format(avgCoords[-1], np.sqrt(sqrCoords[-1]-avgCoords[-1]*avgCoords[-1])))
-    return posteriors
+    
+    # Analyze the changes in x,y,z and evidence for different z values
+    statData = []
+    statData.append((meanX, sigmaX))
+    statData.append((meanY, sigmaY))
+    statData.append((meanZ, sigmaZ))
+    statData.append((logZ, logZ_sdev))
+    return statData
+    
+def process_results(results):
+    """
+    return posterior numpy array in shape (numlhouses,dim,ni)
+    """
+    posterData = get_posteriors(results)
+    cornerplots(posterData)
+    statData = get_statistics(results)
+    return posterData ,statData
 
 if __name__ == "__main__":
     results = nested_sampling(n, max_iter, sample_from_prior, explore)
-    posteriors = process_results(results)
+    posteriors , statData = process_results(results)
