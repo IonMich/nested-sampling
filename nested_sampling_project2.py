@@ -147,7 +147,6 @@ def logLhoodLHouse(lightHCoords):
             for e in range(model_num_LH):
                 sumLikelihoodLH += (1/model_num_LH)* (z[e] / np.pi) / ((DX - x[e])*(DX - x[e]) + z[e]*z[e])
 
-        logL = np.sum( np.log( np.sum((z / np.pi) / ((DX - x)*(DX - x) + z*z) ) ))
 
     elif dim==3:
         y = np.array(lightHCoords[...,1])
@@ -157,7 +156,7 @@ def logLhoodLHouse(lightHCoords):
         else:
             for e in range(model_num_LH):
                 sumLikelihoodLH += (1/model_num_LH)* (z[e] / np.pi**2) / ((DX - x[e])*(DX - x[e]) + (DY - y[e])*(DY - y[e]) + z[e]*z[e]) / np.sqrt((DX - x[e])*(DX - x[e]) + (DY - y[e])*(DY - y[e]))
-                
+
     logL = np.sum( np.log(sumLikelihoodLH ))
     return logL
 
