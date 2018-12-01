@@ -47,6 +47,7 @@ n = 100             # number of objects
 max_iter = 2000     # number of iterations
 dim = 3
 transverseDim = dim - 1
+model_num_LH = 2
 
 assert(dim==2 or dim==3)
 
@@ -151,7 +152,8 @@ def sample_from_prior():
 
 
     """
-    unitCoords = np.random.uniform(size=dim)
+    unitCoords = np.random.uniform(size=(model_num_LH,dim))
+    unitCoords = np.squeeze(unitCoords) # if (1,dim) squeeze to (dim,)
     Obj = LHouses(unitCoords)
     return Obj
 
