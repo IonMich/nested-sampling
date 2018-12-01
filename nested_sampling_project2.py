@@ -43,10 +43,11 @@ def generatePositions(lightHCoords, samples_for_eachLH):
 
     return X,Y
 
-n = 100             # number of objects
+n = 100            # number of objects
 max_iter = 2000     # number of iterations
 dim = 3
 transverseDim = dim - 1
+model_num_LH = 2
 
 assert(dim==2 or dim==3)
 
@@ -134,34 +135,23 @@ def logLhoodLHouse(lightHCoords):
      Easterly position
      Northerly position
     """
+    x = np.array( lightHCoords[...,0])
+    z = np.array(lightHCoords[...,-1])
+    DX = flashesPositions[0]
+    sumLikelihoodLH = 0
 
-    i = len(lightHCoords.shape)
-    if i == 1:
-        x = lightHCoords[0]
-        z = lightHCoords[-1]
-        DX = flashesPositions[0]
+    if dim ==2:
+        logL = np.sum( np.log( np.sum((z / np.pi) / ((DX - x)*(DX - x) + z*z) ) ))
 
-        if dim ==2:
-            logL = np.sum( np.log( (z / np.pi) / ((DX - x)*(DX - x) + z*z) ) )
-        elif dim==3:
-            y = lightHCoords[1]
-            DY = flashesPositions[1]
-            logL = np.sum( np.log( (z / np.pi**2) / ((DX - x)*(DX - x) + (DY - y)*(DY - y) + z*z) / np.sqrt((DX - x)*(DX - x) + (DY - y)*(DY - y)) ) )
-    if i == 2:
-        x1 = lightHCoords[0,0]
-        z1 = lightHCoords[0,2]
-        x2 = lightHCoords[1,0]
-        z2 = lightHCoords[1,2]
-        DX = flashesPositions[0]
-
-        if dim ==2:
-            logL = np.sum( np.log( (z1 / np.pi) / ((DX - x1)*(DX - x1) + z1*z1) + (z2 / np.pi) / ((DX - x2)*(DX - x2) + z2*z2g) ) )
-        elif dim==3:
-            y1 = lightHCoords[0,1]
-            y2 = lightHCoords[0,1]
-            DY = flashesPositions[1]
-            logL = np.sum( np.log(  1/2 * (z1 / np.pi**2) / ((DX - x1)*(DX - x1) + (DY - y1)*(DY - y1) + z1*z1) / np.sqrt((DX - x1)*(DX - x1) + (DY - y1)*(DY - y1)) + \
-             1/2 * (z2 / np.pi**2) / ((DX - x2)*(DX - x2) + (DY - y2)*(DY - y2) + z2*z2) / np.sqrt((DX - x2)*(DX - x2) + (DY - y2)*(DY - y2)) ) )
+    elif dim==3:
+        y = np.array(lightHCoords[...,1])
+        DY = flashesPositions[1]
+        if np.sum(x.shape) == 0:
+            sumLikelihoodLH = (z / np.pi**2) / ((DX - x)*(DX - x) + (DY - y)*(DY - y) + z*z) / np.sqrt((DX - x)*(DX - x) + (DY - y)*(DY - y))
+        else:
+            for e in range(model_num_LH):
+                sumLikelihoodLH += (1/model_num_LH)* (z[e] / np.pi**2) / ((DX - x[e])*(DX - x[e]) + (DY - y[e])*(DY - y[e]) + z[e]*z[e]) / np.sqrt((DX - x[e])*(DX - x[e]) + (DY - y[e])*(DY - y[e]))
+        logL = np.sum( np.log(sumLikelihoodLH ))
     return logL
 
 def sample_from_prior():
@@ -169,7 +159,8 @@ def sample_from_prior():
 
 
     """
-    unitCoords = np.random.uniform(size=dim)
+    unitCoords = np.random.uniform(size=(model_num_LH,dim))
+    unitCoords = np.squeeze(unitCoords) # if (1,dim) squeeze to (dim,)
     Obj = LHouses(unitCoords)
     return Obj
 
@@ -250,7 +241,7 @@ def process_results(results):
         avgCoords += w * coords
         sqrCoords += w * coords * coords
         posteriors[...,i] = coords
-    cornerplots(posteriors)
+    #cornerplots(posteriors)
 
     logZ_sdev = results['logZ_sdev']
 #    H = results['info_nats']
