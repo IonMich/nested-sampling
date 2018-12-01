@@ -54,6 +54,7 @@ assert(dim==2 or dim==3)
 # Number of flashes
 N = 4000
 #np.random.seed(0)
+
 LHactualCoords=([[1.25,1.10,0.70]]) #Actual Coordinates of Light Houses
 flashesPositions = generatePositions(LHactualCoords, N)
 
@@ -228,37 +229,62 @@ def cornerplots(posteriors):
             plt.plot(posteriorsFlat[j],posteriorsFlat[i],'.')
     plt.show()
 
-def process_results(results):
-    """
+def get_posteriors(results):
+    ni = results['num iterations']
+    samples = results['samples']
+    shape =  samples[0].Coords.shape
+    posteriors = np.zeros(sum( ( shape, (ni,) ), () ) )
+    for i in range(ni):
+        coords = samples[i].Coords
+        posteriors[...,i] = coords
+    return posteriors    
 
-
-    """
+def get_statistics(results):   
     ni = results['num_iterations']
     samples = results['samples']
     shape =  samples[0].Coords.shape
     avgCoords = np.zeros(shape) # first moments of coordinates
     sqrCoords = np.zeros(shape) # second moments of coordinates
     logZ = results['logZ']
-    posteriors = np.zeros(sum( ( shape, (ni,) ), () ) )
     for i in range(ni):
         w = np.exp(samples[i].logWt - logZ) # Proportional weight
         coords = samples[i].Coords
         avgCoords += w * coords
         sqrCoords += w * coords * coords
-        posteriors[...,i] = coords
-    #cornerplots(posteriors)
+    
+    print("Num of Iterations: %i" %ni)
+    
+    meanX, sigmaX = avgCoords[0], np.sqrt(sqrCoords[0]-avgCoords[0]*avgCoords[0])
+    print("mean(x) = %f, stddev(x) = %f" %(meanX, sigmaX));
+    
+    if dim ==3: 
+        meanY, sigmaY = avgCoords[1], np.sqrt(sqrCoords[1]-avgCoords[1]*avgCoords[1])
+        print("mean(y) = %f, stddev(y) = %f" %(meanY, sigmaY));
+    
+    meanZ, sigmaZ = avgCoords[-1], np.sqrt(sqrCoords[-1]-avgCoords[-1]*avgCoords[-1])
+    print("mean(z) = %f, stddev(z) = %f" %(meanZ, sigmaZ));
+    
 
     logZ_sdev = results['logZ_sdev']
-#    H = results['info_nats']
-#    H_sdev = results['info_sdev']
-    print("# iterates: %i"%ni)
     print("Evidence: ln(Z) = %g +- %g"%(logZ,logZ_sdev))
-#    print("Information: H  = %g nats = %g bits"%(H,H/log(2.0)))
-    print("mean(x) = {:9.4f}, stddev(x) = {:9.4f}".format(avgCoords[0], np.sqrt(sqrCoords[0]-avgCoords[0]*avgCoords[0])))
-    if dim ==3: print("mean(y) = {:9.4f}, stddev(y) = {:9.4f}".format(avgCoords[1], np.sqrt(sqrCoords[1]-avgCoords[1]*avgCoords[1])))
-    print("mean(z) = {:9.4f}, stddev(z) = {:9.4f}".format(avgCoords[-1], np.sqrt(sqrCoords[-1]-avgCoords[-1]*avgCoords[-1])))
-    return posteriors
+    
+    # Analyze the changes in x,y,z and evidence for different z values
+    statData = []
+    statData.append((meanX, sigmaX))
+    statData.append((meanY, sigmaY))
+    statData.append((meanZ, sigmaZ))
+    statData.append((logZ, logZ_sdev))
+    return statData
+    
+def process_results(results):
+    """
+    return posterior numpy array in shape (numlhouses,dim,ni)
+    """
+    posterData = get_posteriors(results)
+    statData = get_statistics(results)
+    cornerplots(posterData)
+    return posterData, statData
 
 if __name__ == "__main__":
     results = nested_sampling(n, max_iter, sample_from_prior, explore)
-    posteriors = process_results(results)
+    posteriors, statData = process_results(results)
