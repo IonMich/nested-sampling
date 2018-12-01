@@ -11,11 +11,11 @@
 #  Posterior   is P(x,z) = L(x,z) / Z estimating lighthouse position
 #  Information is H = INTEGRAL P(x,z) log(P(x,z)/Prior(x,z)) dxdz
 
-from mininest import nested_sampling
 import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 from sklearn.cluster import KMeans
+from mininest import nested_sampling
 
 def generatePositions(lightHCoords, samples_for_eachLH):
     """
@@ -260,7 +260,6 @@ def clustering(posteriors):
     kmeans = KMeans(n_clusters=model_num_LH, random_state=0).fit(posteriorPoints)
     print(kmeans.cluster_centers_)
     print(kmeans.inertia_)
-    print(kmeans.score(posteriorPoints))
     return kmeans
     
 def get_posteriors(results):
@@ -293,14 +292,14 @@ def get_statistics(results):
     print("Num of Iterations: %i" %ni)
     
     meanX, sigmaX = avgCoords[0], np.sqrt(sqrCoords[0]-avgCoords[0]*avgCoords[0])
-    print("mean(x) = %f, stddev(x) = %f" %(meanX, sigmaX));
+    print("mean(x) = %f, stddev(x) = %f" %(meanX, sigmaX))
     
     if dim ==3: 
         meanY, sigmaY = avgCoords[1], np.sqrt(sqrCoords[1]-avgCoords[1]*avgCoords[1])
-        print("mean(y) = %f, stddev(y) = %f" %(meanY, sigmaY));
+        print("mean(y) = %f, stddev(y) = %f" %(meanY, sigmaY))
     
     meanZ, sigmaZ = avgCoords[-1], np.sqrt(sqrCoords[-1]-avgCoords[-1]*avgCoords[-1])
-    print("mean(z) = %f, stddev(z) = %f" %(meanZ, sigmaZ));
+    print("mean(z) = %f, stddev(z) = %f" %(meanZ, sigmaZ))
     
     logZ_sdev = results['logZ_sdev']
     print("Evidence: ln(Z) = %g +- %g"%(logZ,logZ_sdev))
@@ -321,10 +320,12 @@ def process_results(results):
     cornerplots(posteriors)
     if dim ==3: ThreeDimPlot(posteriors)
     kmeans = clustering(posteriors)
-    statData = get_statistics(results)
+    if model_num_LH == 1:
+        statData = get_statistics(results)
+    else:
+        statData = None
     return posteriors , kmeans, statData
 
 if __name__ == "__main__":
     results = nested_sampling(n, max_iter, sample_from_prior, explore)
     posteriors ,kmeans, statData = process_results(results)
-    print
