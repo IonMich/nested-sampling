@@ -54,7 +54,7 @@ assert(dim==2 or dim==3)
 N = 4000
 #np.random.seed(0)
 LHactualCoords=([[1.25,1.10,0.70]]) #Actual Coordinates of Light Houses
-positions = generatePositions(LHactualCoords, N)
+flashesPositions = generatePositions(LHactualCoords, N)
 
 #map of unit domain to the spatial domain
 transverse = lambda unit : 4.0 * unit - 2.0
