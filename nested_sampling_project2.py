@@ -14,6 +14,8 @@
 from mininest import nested_sampling
 import matplotlib.pyplot as plt
 import numpy as np
+from mpl_toolkits.mplot3d import Axes3D
+from sklearn.cluster import KMeans
 
 def generatePositions(lightHCoords, samples_for_eachLH):
     """
@@ -55,6 +57,7 @@ assert(dim==2 or dim==3)
 N = 4000
 #np.random.seed(0)
 LHactualCoords=([[1.50,1.10,0.70],[-1.50,1.10,0.70]]) #Actual Coordinates of Light Houses
+#LHactualCoords=([[1.50,1.10,0.70]]) #Actual Coordinates of Light Houses
 flashesPositions = generatePositions(LHactualCoords, N)
 
 #map of unit domain to the spatial domain
@@ -238,21 +241,41 @@ def cornerplots(posteriors):
             subPltIndex = i*pSize + 1 + j
             plt.subplot(pSize,pSize,subPltIndex)
             plt.plot(posteriors[j],posteriors[i],'.')
-            plt.xlim((-10,10))
-            plt.ylim((-10,10))
+            plt.xlim(domains[j])
+            plt.ylim(domains[i])
     plt.show()
+    
+def ThreeDimPlot(posteriors):
+    """
+    assumes that posteriors is (dim,totalSamples) shaped numpy array
+    """
+    fig = plt.figure('{}-d plot'.format(dim))
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(xs=posteriors[0,:],ys=posteriors[1,:],zs=posteriors[2,:])
+    plt.show()
+ 
+def clustering(posteriors):
+    ## TODO: incorporate sample weight in the .fit() params!!
+    posteriorPoints = posteriors.T
+    kmeans = KMeans(n_clusters=model_num_LH, random_state=0).fit(posteriorPoints)
+    print(kmeans.cluster_centers_)
+    print(kmeans.inertia_)
+    print(kmeans.score(posteriorPoints))
+    return kmeans
     
 def get_posteriors(results):
     ni = results['num_iterations']
     samples = results['samples']
     shape =  samples[0].Coords.shape
     posteriors = np.zeros(sum( ( shape, (ni,) ), () ) )
+    print(posteriors.shape)
     for i in range(ni):
         coords = samples[i].Coords
         posteriors[...,i] = coords
-    posteriors = posteriors.reshape((dim,model_num_LH*max_iter),order='A')
+    posteriors = np.swapaxes(posteriors, 0, -2)
+    posteriors = posteriors.reshape((dim,model_num_LH*max_iter))
     print(posteriors.shape)
-    return posteriors    
+    return posteriors
 
 def get_statistics(results):   
     ni = results['num_iterations']
@@ -294,11 +317,14 @@ def process_results(results):
     """
     return posterior numpy array in shape (numlhouses,dim,ni)
     """
-    posterData = get_posteriors(results)
-    cornerplots(posterData)
+    posteriors = get_posteriors(results)
+    cornerplots(posteriors)
+    if dim ==3: ThreeDimPlot(posteriors)
+    kmeans = clustering(posteriors)
     statData = get_statistics(results)
-    return posterData ,statData
+    return posteriors , kmeans, statData
 
 if __name__ == "__main__":
     results = nested_sampling(n, max_iter, sample_from_prior, explore)
-    posteriors , statData = process_results(results)
+    posteriors ,kmeans, statData = process_results(results)
+    print
