@@ -216,7 +216,6 @@ def cornerplots(posteriors):
     """
     pSize = posteriors[...,0].size # total number of posterior coordinates (3 for a single lhouse)
     numLhouses = pSize//dim
-    # posteriorsFlat = posteriors.reshape(pSize,posteriors.shape[-1])
     transverseDomain = (-2,2)
     depthDomain = (0,2)
     domains = sum( ((transverseDomain,)*transverseDim,(depthDomain,))*numLhouses, () )
