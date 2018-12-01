@@ -39,14 +39,15 @@ def generatePositions(lightHCoords, samples_for_eachLH):
             flashesPositionsX, flashesPositionsY = x + np.cos(phiArray)*(flashesPositionsX) - np.sin(phiArray)*(flashesPositionsY),\
                                                    y + np.sin(phiArray)*(flashesPositionsX) + np.cos(phiArray)*(flashesPositionsY)
         X,Y=np.append(X,[flashesPositionsX]),np.append(Y,[flashesPositionsY])
-                                       
-    
+
+
     return X,Y
 
-n = 100             # number of objects
+n = 100            # number of objects
 max_iter = 2000     # number of iterations
 dim = 3
 transverseDim = dim - 1
+model_num_LH = 2
 
 assert(dim==2 or dim==3)
 
@@ -54,7 +55,7 @@ assert(dim==2 or dim==3)
 N = 4000
 #np.random.seed(0)
 LHactualCoords=([[1.25,1.10,0.70]]) #Actual Coordinates of Light Houses
-positions = generatePositions(LHactualCoords, N)
+flashesPositions = generatePositions(LHactualCoords, N)
 
 #map of unit domain to the spatial domain
 transverse = lambda unit : 4.0 * unit - 2.0
@@ -62,9 +63,9 @@ depth = lambda unit : 2.0 * unit
 
 plt.figure('Flashes (Data)')
 if dim==2:
-    plt.hist(positions[0],50,range = (-10, 10))
+    plt.hist(flashesPositions[0],50,range = (-10, 10))
 if dim==3:
-    plt.plot(positions[0],positions[1],'.')
+    plt.plot(flashesPositions[0],flashesPositions[1],'.')
     plt.xlim([-10,10])
     plt.ylim([-10,10])
 
@@ -73,7 +74,7 @@ class LHouses():
     """
     TESTS:
     put the following at the begining of the if name==main statement
-    
+
     myLH = LightHouse(np.array([0.2,0.3,0.4]) )
     myLHpair = LHouses(np.array([0.2,0.3,0.4]) )
     myLHpair2 = LHouses(np.array([[0.2,0.3,0.4],[0.5,0.6,0.8]]) )
@@ -89,7 +90,7 @@ class LHouses():
         assert(configDim%dim==0 and configDim>1)
         self.update(unitArray)
         self.logWt=None     # log(Weight), adding to SUM(Wt) = Evidence Z
-        
+
     def update(self,unitArray):
         """
 
@@ -125,7 +126,7 @@ class LHouses():
         """
 
         """
-        return LHouses(self.unitCoords) 
+        return LHouses(self.unitCoords)
 
 
 def logLhoodLHouse(lightHCoords):
@@ -134,16 +135,29 @@ def logLhoodLHouse(lightHCoords):
      Easterly position
      Northerly position
     """
-    x = lightHCoords[0]
-    z = lightHCoords[-1]
-    DX = positions[0]
+    x = np.array( lightHCoords[...,0])
+    z = np.array(lightHCoords[...,-1])
+    DX = flashesPositions[0]
+    sumLikelihoodLH = 0
 
     if dim ==2:
-        logL = np.sum( np.log( (z / np.pi) / ((DX - x)*(DX - x) + z*z) ) )
+        if np.sum(x.shape) == 0:
+            sumLikelihoodLH = (z / np.pi) / ((DX - x)*(DX - x) + z*z)
+        else:
+            for e in range(model_num_LH):
+                sumLikelihoodLH += (1/model_num_LH)* (z[e] / np.pi) / ((DX - x[e])*(DX - x[e]) + z[e]*z[e])
+
+
     elif dim==3:
-        y = lightHCoords[1]
-        DY = positions[1]
-        logL = np.sum( np.log( (z / np.pi**2) / ((DX - x)*(DX - x) + (DY - y)*(DY - y) + z*z) / np.sqrt((DX - x)*(DX - x) + (DY - y)*(DY - y)) ) )
+        y = np.array(lightHCoords[...,1])
+        DY = flashesPositions[1]
+        if np.sum(x.shape) == 0:
+            sumLikelihoodLH = (z / np.pi**2) / ((DX - x)*(DX - x) + (DY - y)*(DY - y) + z*z) / np.sqrt((DX - x)*(DX - x) + (DY - y)*(DY - y))
+        else:
+            for e in range(model_num_LH):
+                sumLikelihoodLH += (1/model_num_LH)* (z[e] / np.pi**2) / ((DX - x[e])*(DX - x[e]) + (DY - y[e])*(DY - y[e]) + z[e]*z[e]) / np.sqrt((DX - x[e])*(DX - x[e]) + (DY - y[e])*(DY - y[e]))
+
+    logL = np.sum( np.log(sumLikelihoodLH ))
     return logL
 
 def sample_from_prior():
@@ -151,7 +165,8 @@ def sample_from_prior():
 
 
     """
-    unitCoords = np.random.uniform(size=dim)
+    unitCoords = np.random.uniform(size=(model_num_LH,dim))
+    unitCoords = np.squeeze(unitCoords) # if (1,dim) squeeze to (dim,)
     Obj = LHouses(unitCoords)
     return Obj
 
@@ -212,10 +227,11 @@ def cornerplots(posteriors):
             plt.subplot(pSize,pSize,subPltIndex)
             plt.plot(posteriorsFlat[j],posteriorsFlat[i],'.')
     plt.show()
-    
+
 def process_results(results):
     """
-    return posterior numpy array in shape (numlhouses,dim,ni)
+
+
     """
     ni = results['num_iterations']
     samples = results['samples']
@@ -230,8 +246,8 @@ def process_results(results):
         avgCoords += w * coords
         sqrCoords += w * coords * coords
         posteriors[...,i] = coords
-    cornerplots(posteriors)
-    
+    #cornerplots(posteriors)
+
     logZ_sdev = results['logZ_sdev']
 #    H = results['info_nats']
 #    H_sdev = results['info_sdev']
