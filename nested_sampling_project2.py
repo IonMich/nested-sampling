@@ -130,25 +130,7 @@ class LHouses():
 
         """
         return LHouses(self.unitCoords) 
-
-
-# def logLhoodLHouse(lightHCoords):
-#     """
-#     logLikelihood function
-#      Easterly position
-#      Northerly position
-#     """
-#     x = lightHCoords[0]
-#     z = lightHCoords[-1]
-#     DX = positions[0]
-
-#     if dim ==2:
-#         logL = np.sum( np.log( (z / np.pi) / ((DX - x)*(DX - x) + z*z) ) )
-#     elif dim==3:
-#         y = lightHCoords[1]
-#         DY = positions[1]
-#         logL = np.sum( np.log( (z / np.pi**2) / ((DX - x)*(DX - x) + (DY - y)*(DY - y) + z*z) / np.sqrt((DX - x)*(DX - x) + (DY - y)*(DY - y)) ) )
-#     return logL
+        
 
 def logLhoodLHouse(lightHCoords):
     """
