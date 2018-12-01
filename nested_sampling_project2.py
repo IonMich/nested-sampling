@@ -47,7 +47,7 @@ n = 100             # number of objects
 max_iter = 2000     # number of iterations
 dim = 3
 transverseDim = dim - 1
-model_num_LH = 2
+model_num_LH = 1
 
 assert(dim==2 or dim==3)
 
