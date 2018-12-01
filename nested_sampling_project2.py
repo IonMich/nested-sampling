@@ -283,8 +283,8 @@ def process_results(results):
     posterData = get_posteriors(results)
     statData = get_statistics(results)
     cornerplots(posterData)
-    return statData
+    return posterData, statData
 
 if __name__ == "__main__":
     results = nested_sampling(n, max_iter, sample_from_prior, explore)
-    posteriors = process_results(results)
+    posteriors, statData = process_results(results)
