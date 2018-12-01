@@ -15,27 +15,33 @@ from mininest import nested_sampling
 import matplotlib.pyplot as plt
 import numpy as np
 
-def generatePositions(lightHCoords, samples=64):
+def generatePositions(lightHCoords, samples_for_eachLH):
     """
-
+    #lightHCoords=([[1st],[2nd]]) for 2LH
+    #lightHCoords=([[1st]]) for 1LH
     """
-    x=lightHCoords[0]
-    z=lightHCoords[-1]
-    if dim==2:
-        thetaArray = np.random.uniform(-np.pi/2,np.pi/2,samples)
-        flashesPositionsX, flashesPositionsY = z * np.tan(thetaArray) + x ,\
-                                                    np.zeros(samples)
-    elif dim==3:
-        y=lightHCoords[1]
-        thetaArray = np.random.uniform(0,np.pi/2,samples)
-        flashesPositionsX = z * np.tan(thetaArray)
-        flashesPositionsY = np.zeros(samples)
+    X=[]
+    Y=[]
+    for i in range(len(lightHCoords)):
+        x=lightHCoords[i][0]
+        z=lightHCoords[i][-1]
+        if dim==2:
+            thetaArray = np.random.uniform(-np.pi/2,np.pi/2,samples_for_eachLH)
+            flashesPositionsX, flashesPositionsY = z * np.tan(thetaArray) + x ,\
+            np.zeros(samples_for_eachLH)
+        elif dim==3:
+            y=lightHCoords[i][1]
+            thetaArray = np.random.uniform(0,np.pi/2,samples_for_eachLH)
+            flashesPositionsX = z * np.tan(thetaArray)
+            flashesPositionsY = np.zeros(samples_for_eachLH)
 
-        phiArray = np.random.uniform(0,2*np.pi,samples)
-        flashesPositionsX , flashesPositionsY = x + np.cos(phiArray)*(flashesPositionsX) - np.sin(phiArray)*(flashesPositionsY),\
-                                                y + np.sin(phiArray)*(flashesPositionsX) + np.cos(phiArray)*(flashesPositionsY)
+            phiArray = np.random.uniform(0,2*np.pi,samples_for_eachLH)
+            flashesPositionsX , flashesPositionsY = x + np.cos(phiArray)*(flashesPositionsX) - np.sin(phiArray)*(flashesPositionsY),\
+            y + np.sin(phiArray)*(flashesPositionsX) + np.cos(phiArray)*(flashesPositionsY)
+        X,Y=np.append(X,[flashesPositionsX]),np.append(Y,[flashesPositionsY])
 
-    return flashesPositionsX , flashesPositionsY
+
+    return X,Y
 
 n = 100              # number of objects
 max_iter = 2000     # number of iterations
@@ -45,9 +51,10 @@ transverseDim = dim - 1
 assert(dim==2 or dim==3)
 
 # Number of flashes
-N = 4000;
+N = 4000
 #np.random.seed(0)
-flashesPositions = generatePositions([1.25,1.10,0.70], samples=N)
+LHactualCoords=([[1.25,1.10,0.70]]) #Actual Coordinates of Light Houses
+positions = generatePositions(LHactualCoords, N)
 
 #map of unit domain to the spatial domain
 transverse = lambda unit : 4.0 * unit - 2.0
@@ -102,9 +109,9 @@ class LHouses():
         self.Coords = np.zeros(self.unitCoords.shape)
         for indexTuple , unitSample in np.ndenumerate(self.unitCoords):
             if indexTuple[-1] != dim-1:
-                self.Coords[indexTuple] = transverse(self.unitCoords[indexTuple])
+                self.Coords[indexTuple] = transverse(unitSample)
             else:
-                self.Coords[indexTuple] = depth(self.unitCoords[indexTuple])
+                self.Coords[indexTuple] = depth(unitSample)
 
     def assignlogL(self):
         """
@@ -173,16 +180,16 @@ def explore(Obj,logLstar):
     # Likelihood constraint L > Lstar
     """
     ret =  Obj.copy()
-    step = 0.1;   # Initial guess suitable step-size in (0,1)
-    accept = 0;   # # MCMC acceptances
-    reject = 0;   # # MCMC rejections
-    a = 1.0;
+    step = 0.1   # Initial guess suitable step-size in (0,1)
+    accept = 0   # # MCMC acceptances
+    reject = 0   # # MCMC rejections
+    a = 1.0
     Try = Obj.copy()          # Trial object
-    for m in range(20):  # pre-judged number of steps
+    for _ in range(20):  # pre-judged number of steps
 
         # Trial object u-w step
-        unitCoords_New = ret.unitCoords + step * (2.0*np.random.uniform(size=ret.unitCoords.shape) - 1.0);  # |move| < step
-        unitCoords_New -= np.floor(unitCoords_New);      # wraparound to stay within (0,1)
+        unitCoords_New = ret.unitCoords + step * (2.0*np.random.uniform(size=ret.unitCoords.shape) - 1.0)  # |move| < step
+        unitCoords_New -= np.floor(unitCoords_New)      # wraparound to stay within (0,1)
         Try.update(unitCoords_New)
 
         # Accept if and only if within hard likelihood constraint
@@ -194,21 +201,25 @@ def explore(Obj,logLstar):
 
         # Refine step-size to let acceptance ratio converge around 50%
         if( accept > reject ):
-            step *= np.exp(a / accept);
+            step *= np.exp(a / accept)
             a /= 1.5
         if( accept < reject ):
-            step /= np.exp(a / reject);
+            step /= np.exp(a / reject)
             a *= 1.5
 #    print(logLstar, accept)
     return ret
 
 def cornerplots(posteriors):
     """
-
+    NOTE: cornerplots converts (2,3,2000) shaped posterior to (6,2000) shaped posteriorFlat if we have 2 lighthouses
+    no effect for 1 LHouse
     """
+    pSize = posteriors[...,0].size # total number of posterior coordinates (3 for a single lhouse)
+    numLhouses = pSize//dim
+    posteriorsFlat = posteriors.reshape(pSize,posteriors.shape[-1])
     transverseDomain = (-2,2)
     depthDomain = (0,2)
-    domains = sum(((transverseDomain,)*transverseDim,(depthDomain,)),())
+    domains = sum( ((transverseDomain,)*transverseDim,(depthDomain,))*numLhouses, () )
     plt.figure('posteriors')
     for i in range(dim):
         plt.subplot(dim,dim,i*dim+i+1)
@@ -226,18 +237,19 @@ def process_results(results):
 
 
     """
-    avgCoords = [0.0,]*dim # first moments of coordinates
-    sqrCoords = [0.0,]*dim # second moments of coordinates
     ni = results['num_iterations']
     samples = results['samples']
+    shape =  samples[0].Coords.shape
+    avgCoords = np.zeros(shape) # first moments of coordinates
+    sqrCoords = np.zeros(shape) # second moments of coordinates
     logZ = results['logZ']
-    posteriors = [ [] for i in range(dim) ]
-    for j in range(dim):
-        for i in range(ni):
-            w = np.exp(samples[i].logWt - logZ); # Proportional weight
-            posteriors[j].append(samples[i].Coords[j])
-            avgCoords[j] += w * samples[i].Coords[j];
-            sqrCoords[j] += w * samples[i].Coords[j] * samples[i].Coords[j];
+    posteriors = np.zeros(sum( ( shape, (ni,) ), () ) )
+    for i in range(ni):
+        w = np.exp(samples[i].logWt - logZ) # Proportional weight
+        coords = samples[i].Coords
+        avgCoords += w * coords
+        sqrCoords += w * coords * coords
+        posteriors[...,i] = coords
     cornerplots(posteriors)
 
     logZ_sdev = results['logZ_sdev']
@@ -246,10 +258,11 @@ def process_results(results):
     print("# iterates: %i"%ni)
     print("Evidence: ln(Z) = %g +- %g"%(logZ,logZ_sdev))
 #    print("Information: H  = %g nats = %g bits"%(H,H/log(2.0)))
-    print("mean(x) = {:9.4f}, stddev(x) = {:9.4f}".format(avgCoords[0], np.sqrt(sqrCoords[0]-avgCoords[0]*avgCoords[0])));
-    if dim ==3: print("mean(y) = {:9.4f}, stddev(y) = {:9.4f}".format(avgCoords[1], np.sqrt(sqrCoords[1]-avgCoords[1]*avgCoords[1])));
-    print("mean(z) = {:9.4f}, stddev(z) = {:9.4f}".format(avgCoords[-1], np.sqrt(sqrCoords[-1]-avgCoords[-1]*avgCoords[-1])));
+    print("mean(x) = {:9.4f}, stddev(x) = {:9.4f}".format(avgCoords[0], np.sqrt(sqrCoords[0]-avgCoords[0]*avgCoords[0])))
+    if dim ==3: print("mean(y) = {:9.4f}, stddev(y) = {:9.4f}".format(avgCoords[1], np.sqrt(sqrCoords[1]-avgCoords[1]*avgCoords[1])))
+    print("mean(z) = {:9.4f}, stddev(z) = {:9.4f}".format(avgCoords[-1], np.sqrt(sqrCoords[-1]-avgCoords[-1]*avgCoords[-1])))
+    return posteriors
 
 if __name__ == "__main__":
     results = nested_sampling(n, max_iter, sample_from_prior, explore)
-    process_results(results)
+    posteriors = process_results(results)
