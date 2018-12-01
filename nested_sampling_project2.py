@@ -32,18 +32,18 @@ def generatePositions(lightHCoords, samples_for_eachLH):
         elif dim==3:
             y=lightHCoords[i][1]
             thetaArray = np.random.uniform(0,np.pi/2,samples_for_eachLH)
-            flashesPositionsX, flashesPositionsY = z * np.tan(thetaArray) ,\
-                                                   np.zeros(samples_for_eachLH)
+
+            flashesPositionsX, flashesPositionsY = z * np.tan(thetaArray), np.zeros(samples_for_eachLH)
 
             phiArray = np.random.uniform(0,2*np.pi,samples_for_eachLH)
-            flashesPositionsX , flashesPositionsY = x + np.cos(phiArray)*(flashesPositionsX) - np.sin(phiArray)*(flashesPositionsY),\
-                                                    y + np.sin(phiArray)*(flashesPositionsX) + np.cos(phiArray)*(flashesPositionsY)
+            flashesPositionsX, flashesPositionsY = x + np.cos(phiArray)*(flashesPositionsX) - np.sin(phiArray)*(flashesPositionsY),\
+                                                   y + np.sin(phiArray)*(flashesPositionsX) + np.cos(phiArray)*(flashesPositionsY)
         X,Y=np.append(X,[flashesPositionsX]),np.append(Y,[flashesPositionsY])
                                        
     
     return X,Y
 
-n = 100              # number of objects
+n = 100             # number of objects
 max_iter = 2000     # number of iterations
 dim = 3
 transverseDim = dim - 1
