@@ -218,15 +218,14 @@ def cornerplots(posteriors):
     depthDomain = (0,2)
     domains = sum( ((transverseDomain,)*transverseDim,(depthDomain,))*numLhouses, () )
     plt.figure('posteriors')
-    for i in range(dim):
-        plt.subplot(dim,dim,i*dim+i+1)
-        plt.hist(posteriors[i],500,range = domains[i])
-
+    for i in range(pSize):
+        plt.subplot(pSize,pSize,i*pSize+i+1)
+        plt.hist(posteriorsFlat[i],500,range = domains[i])
         # joint posteriors
         for j in range(i):
-            subPltIndex = i*dim + 1 + j
-            plt.subplot(dim,dim,subPltIndex)
-            plt.plot(posteriors[j],posteriors[i],'.')
+            subPltIndex = i*pSize + 1 + j
+            plt.subplot(pSize,pSize,subPltIndex)
+            plt.plot(posteriorsFlat[j],posteriorsFlat[i],'.')
     plt.show()
 
 def process_results(results):
