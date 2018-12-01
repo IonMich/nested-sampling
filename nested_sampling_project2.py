@@ -230,7 +230,7 @@ def cornerplots(posteriors):
     plt.show()
 
 def get_posteriors(results):
-    ni = results['num iterations']
+    ni = results['num_iterations']
     samples = results['samples']
     shape =  samples[0].Coords.shape
     posteriors = np.zeros(sum( ( shape, (ni,) ), () ) )
@@ -255,14 +255,14 @@ def get_statistics(results):
     print("Num of Iterations: %i" %ni)
     
     meanX, sigmaX = avgCoords[0], np.sqrt(sqrCoords[0]-avgCoords[0]*avgCoords[0])
-    print("mean(x) = %f, stddev(x) = %f" %(meanX, sigmaX));
+    print("mean(x) = %f, stddev(x) = %f" %(meanX, sigmaX))
     
     if dim ==3: 
         meanY, sigmaY = avgCoords[1], np.sqrt(sqrCoords[1]-avgCoords[1]*avgCoords[1])
-        print("mean(y) = %f, stddev(y) = %f" %(meanY, sigmaY));
+        print("mean(y) = %f, stddev(y) = %f" %(meanY, sigmaY))
     
     meanZ, sigmaZ = avgCoords[-1], np.sqrt(sqrCoords[-1]-avgCoords[-1]*avgCoords[-1])
-    print("mean(z) = %f, stddev(z) = %f" %(meanZ, sigmaZ));
+    print("mean(z) = %f, stddev(z) = %f" %(meanZ, sigmaZ))
     
 
     logZ_sdev = results['logZ_sdev']
