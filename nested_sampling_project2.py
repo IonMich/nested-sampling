@@ -41,8 +41,8 @@ def generatePositions(lightHCoords, samples_for_eachLH):
             flashesPositionsX, flashesPositionsY = x + np.cos(phiArray)*(flashesPositionsX) - np.sin(phiArray)*(flashesPositionsY),\
                                                    y + np.sin(phiArray)*(flashesPositionsX) + np.cos(phiArray)*(flashesPositionsY)
         X,Y=np.append(X,[flashesPositionsX]),np.append(Y,[flashesPositionsY])
-                                       
-    
+
+
     return X,Y
 
 n = 20             # number of objects
@@ -77,7 +77,7 @@ class LHouses():
     """
     TESTS:
     put the following at the begining of the if name==main statement
-    
+
     myLH = LightHouse(np.array([0.2,0.3,0.4]) )
     myLHpair = LHouses(np.array([0.2,0.3,0.4]) )
     myLHpair2 = LHouses(np.array([[0.2,0.3,0.4],[0.5,0.6,0.8]]) )
@@ -93,7 +93,7 @@ class LHouses():
         assert(configDim%dim==0 and configDim>1)
         self.update(unitArray)
         self.logWt=None     # log(Weight), adding to SUM(Wt) = Evidence Z
-        
+
     def update(self,unitArray):
         """
 
@@ -144,7 +144,12 @@ def logLhoodLHouse(lightHCoords):
     sumLikelihoodLH = 0
 
     if dim ==2:
-        logL = np.sum( np.log( np.sum((z / np.pi) / ((DX - x)*(DX - x) + z*z) ) ))
+        if np.sum(x.shape) == 0:
+            sumLikelihoodLH = (z / np.pi) / ((DX - x)*(DX - x) + z*z)
+        else:
+            for e in range(model_num_LH):
+                sumLikelihoodLH += (1/model_num_LH)* (z[e] / np.pi) / ((DX - x[e])*(DX - x[e]) + z[e]*z[e])
+
 
     elif dim==3:
         y = np.array(lightHCoords[...,1])
@@ -154,7 +159,8 @@ def logLhoodLHouse(lightHCoords):
         else:
             for e in range(model_num_LH):
                 sumLikelihoodLH += (1/model_num_LH)* (z[e] / np.pi**2) / ((DX - x[e])*(DX - x[e]) + (DY - y[e])*(DY - y[e]) + z[e]*z[e]) / np.sqrt((DX - x[e])*(DX - x[e]) + (DY - y[e])*(DY - y[e]))
-        logL = np.sum( np.log(sumLikelihoodLH ))
+
+    logL = np.sum( np.log(sumLikelihoodLH ))
     return logL
 
 def sample_from_prior():
@@ -225,16 +231,14 @@ def cornerplots(posteriors):
             plt.plot(posteriors[j],posteriors[i],'.')
             plt.xlim(domains[j])
             plt.ylim(domains[i])
-    plt.show()
     
-def ThreeDimPlot(posteriors):
+def threeDimPlot(posteriors):
     """
     assumes that posteriors is (dim,totalSamples) shaped numpy array
     """
     fig = plt.figure('{}-d plot'.format(dim))
     ax = fig.add_subplot(111, projection='3d')
     ax.scatter(xs=posteriors[0,:],ys=posteriors[1,:],zs=posteriors[2,:])
-    plt.show()
  
 def clustering(posteriors):
     ## TODO: incorporate sample weight in the .fit() params!!
@@ -249,13 +253,11 @@ def get_posteriors(results):
     samples = results['samples']
     shape =  samples[0].Coords.shape
     posteriors = np.zeros(sum( ( shape, (ni,) ), () ) )
-    print(posteriors.shape)
     for i in range(ni):
         coords = samples[i].Coords
         posteriors[...,i] = coords
     posteriors = np.swapaxes(posteriors, 0, -2)
     posteriors = posteriors.reshape((dim,model_num_LH*max_iter))
-    print(posteriors.shape)
     return posteriors
 
 def get_statistics(results):   
@@ -274,15 +276,16 @@ def get_statistics(results):
     print("Num of Iterations: %i" %ni)
     
     meanX, sigmaX = avgCoords[0], np.sqrt(sqrCoords[0]-avgCoords[0]*avgCoords[0])
-    print("mean(x) = %f, stddev(x) = %f" %(meanX, sigmaX))
+    print("mean(x) = %f, stddev(x) = %f" %(meanX, sigmaX));
     
     if dim ==3: 
         meanY, sigmaY = avgCoords[1], np.sqrt(sqrCoords[1]-avgCoords[1]*avgCoords[1])
-        print("mean(y) = %f, stddev(y) = %f" %(meanY, sigmaY))
+        print("mean(y) = %f, stddev(y) = %f" %(meanY, sigmaY));
     
     meanZ, sigmaZ = avgCoords[-1], np.sqrt(sqrCoords[-1]-avgCoords[-1]*avgCoords[-1])
-    print("mean(z) = %f, stddev(z) = %f" %(meanZ, sigmaZ))
+    print("mean(z) = %f, stddev(z) = %f" %(meanZ, sigmaZ));
     
+
     logZ_sdev = results['logZ_sdev']
     print("Evidence: ln(Z) = %g +- %g"%(logZ,logZ_sdev))
     
@@ -299,15 +302,16 @@ def process_results(results):
     return posterior numpy array in shape (numlhouses,dim,ni)
     """
     posteriors = get_posteriors(results)
-    cornerplots(posteriors)
-    if dim ==3: ThreeDimPlot(posteriors)
     kmeans = clustering(posteriors)
-    if model_num_LH == 1:
+    if model_num_LH==1:
         statData = get_statistics(results)
     else:
         statData = None
-    return posteriors , kmeans, statData
+    if dim==3: threeDimPlot(posteriors)
+    cornerplots(posteriors)
+    return posteriors, kmeans, statData
 
 if __name__ == "__main__":
     results = nested_sampling(n, max_iter, sample_from_prior, explore)
-    posteriors ,kmeans, statData = process_results(results)
+    posteriors, kmeans, statData = process_results(results)
+    plt.show()
