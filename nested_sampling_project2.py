@@ -15,27 +15,33 @@ from mininest import nested_sampling
 import matplotlib.pyplot as plt
 import numpy as np
 
-def generatePositions(lightHCoords, samples=64):
+def generatePositions(lightHCoords, samples_for_eachLH):
     """
-
+    #lightHCoords=([[1st],[2nd]]) for 2LH
+    #lightHCoords=([[1st]]) for 1LH
     """
-    x=lightHCoords[0]
-    z=lightHCoords[-1]
-    if dim==2:
-        thetaArray = np.random.uniform(-np.pi/2,np.pi/2,samples)
-        flashesPositionsX, flashesPositionsY = z * np.tan(thetaArray) + x ,\
-                                                    np.zeros(samples)
-    elif dim==3:
-        y=lightHCoords[1]
-        thetaArray = np.random.uniform(0,np.pi/2,samples)
-        flashesPositionsX = z * np.tan(thetaArray)
-        flashesPositionsY = np.zeros(samples)
+    X=[]
+    Y=[]
+    for i in range(len(lightHCoords)):
+        x=lightHCoords[i][0]
+        z=lightHCoords[i][-1]
+        if dim==2:
+            thetaArray = np.random.uniform(-np.pi/2,np.pi/2,samples_for_eachLH)
+            flashesPositionsX, flashesPositionsY = z * np.tan(thetaArray) + x ,\
+            np.zeros(samples_for_eachLH)
+        elif dim==3:
+            y=lightHCoords[i][1]
+            thetaArray = np.random.uniform(0,np.pi/2,samples_for_eachLH)
+            flashesPositionsX = z * np.tan(thetaArray)
+            flashesPositionsY = np.zeros(samples_for_eachLH)
 
-        phiArray = np.random.uniform(0,2*np.pi,samples)
-        flashesPositionsX , flashesPositionsY = x + np.cos(phiArray)*(flashesPositionsX) - np.sin(phiArray)*(flashesPositionsY),\
-                                                y + np.sin(phiArray)*(flashesPositionsX) + np.cos(phiArray)*(flashesPositionsY)
-
-    return flashesPositionsX , flashesPositionsY
+            phiArray = np.random.uniform(0,2*np.pi,samples_for_eachLH)
+            flashesPositionsX , flashesPositionsY = x + np.cos(phiArray)*(flashesPositionsX) - np.sin(phiArray)*(flashesPositionsY),\
+            y + np.sin(phiArray)*(flashesPositionsX) + np.cos(phiArray)*(flashesPositionsY)
+        X,Y=np.append(X,[flashesPositionsX]),np.append(Y,[flashesPositionsY])
+                                       
+    
+    return X,Y
 
 n = 100              # number of objects
 max_iter = 2000     # number of iterations
@@ -47,7 +53,8 @@ assert(dim==2 or dim==3)
 # Number of flashes
 N = 4000
 #np.random.seed(0)
-positions = generatePositions([1.25,1.10,0.70], samples=N)
+LHactualCoords=([[1.25,1.10,0.70]]) #Actual Coordinates of Light Houses
+positions = generatePositions(LHactualCoords, N)
 
 #map of unit domain to the spatial domain
 transverse = lambda unit : 4.0 * unit - 2.0
