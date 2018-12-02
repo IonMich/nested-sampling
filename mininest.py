@@ -96,6 +96,12 @@ def nested_sampling(n, max_iter, sample_from_prior, explore):
         # Shrink interval
         logwidth -= 1.0 / n;
 
+        if nest > 2 * n*H + 1:
+            print("Finished mininest at {} iterations".format(nest))
+            break
+    else:
+        print("Something went wrong. Try increasing the max number of iterations.")
+
     # Exit with evidence Z, information H, and optional posterior Samples
     sdev_H = H/log(2.)
     sdev_logZ = sqrt(H/n)
