@@ -17,7 +17,7 @@ from mpl_toolkits.mplot3d import Axes3D
 plt.style.use('dark_background')
 from sklearn.cluster import KMeans
 from mininest import nested_sampling
-from KDEpy import FFTKDE, TreeKDE
+from KDEpy import TreeKDE
 
 def generatePositions(lightHCoords, samples_for_eachLH):
     """
@@ -226,7 +226,7 @@ def cornerplots(posteriors,weights=None):
         plt.subplot(pSize,pSize,i*pSize+i+1)
         samples = posteriors[i]
         x = np.linspace(*domains[i],2000)
-        estimator = FFTKDE(kernel='gaussian', bw=0.01)
+        estimator = TreeKDE(kernel='gaussian', bw=0.01)
         y = estimator.fit(samples, weights=weights).evaluate(x)
         plt.plot(x, y)
         plt.hist(samples,bins=50,range = domains[i],weights=weights,density=True) 
@@ -236,7 +236,7 @@ def cornerplots(posteriors,weights=None):
             plt.subplot(pSize,pSize,subPltIndex)
             xp, yp = posteriors[j],posteriors[i]
             xy = np.vstack([xp,yp]).T
-            kde = FFTKDE(kernel='gaussian', norm=2,bw=0.05)
+            kde = TreeKDE(kernel='gaussian', norm=2,bw=0.05)
             grid, points = kde.fit(xy,weights).evaluate(2**8)
             # The grid is of shape (obs, dims), points are of shape (obs, 1)
             x, y = np.unique(grid[:, 0]), np.unique(grid[:, 1])
@@ -298,13 +298,20 @@ def threeDimPlot(posteriors,weights=None):
     plt.legend()
     plt.tight_layout()
 
-def clustering(posteriors,weights=None,extraClusters=6):
+def clustering(posteriors,weights=None,extraClusters=20):
     posteriorPoints = posteriors.T
-    kmeans = KMeans(n_clusters=model_num_LH+extraClusters,max_iter=1000,tol=1E-7,n_init=100).fit(posteriorPoints,weights)
-    clusterCenterPositions = kmeans.cluster_centers_[:model_num_LH]
+    kmeans = KMeans(n_clusters=model_num_LH,max_iter=1000,tol=1E-7,n_init=100).fit(posteriorPoints,weights)
+    clusterCenterPositions = kmeans.cluster_centers_
+    kmeans2 = KMeans(n_clusters=model_num_LH+extraClusters,max_iter=1000,tol=1E-7,n_init=100).fit(posteriorPoints,weights)
+    clusterCenterPositions2 = kmeans2.cluster_centers_
+    # print(clusterCenterPositions2)
+    for i in range(len(clusterCenterPositions[...,0])):
+        idx = np.argmin(np.sum(np.abs(clusterCenterPositions[i] - clusterCenterPositions2),axis=1))
+        clusterCenterPositions[i] = clusterCenterPositions2[idx]
+
     print("Cluster Positions:")
     print(clusterCenterPositions)
-    print(kmeans.inertia_)
+    print("Score of clusters: ",kmeans.inertia_)
     return clusterCenterPositions , kmeans
     
 def get_posteriors(results):
@@ -380,6 +387,7 @@ def process_results(results):
     return posteriors, weights, clusterCenterPositions, kmeans, statData
 
 def do_plots(posteriors,weights):
+    print("Generating Plots. This might take some time...")
     plot_weights(weights)
     if dim==3: threeDimPlot(posteriors,weights)
     cornerplots(posteriors, weights)
