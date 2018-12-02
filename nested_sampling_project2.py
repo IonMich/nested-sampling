@@ -17,8 +17,7 @@ from mpl_toolkits.mplot3d import Axes3D
 plt.style.use('dark_background')
 from sklearn.cluster import KMeans
 from mininest import nested_sampling
-from scipy.stats import gaussian_kde
-from gaussian_weighted_kde import gaussian_kde_weights
+from KDEpy import FFTKDE
 
 def generatePositions(lightHCoords, samples_for_eachLH):
     """
@@ -215,7 +214,7 @@ def explore(Obj,logLstar):
 
 def cornerplots(posteriors,weights=None):
     """
-    
+    note bandwidth bw=0.01
     """
     pSize = posteriors[...,0].size # total number of posterior coordinates (3 for a single lhouse)
     numLhouses = pSize//dim
@@ -226,24 +225,25 @@ def cornerplots(posteriors,weights=None):
     for i in range(pSize):
         plt.subplot(pSize,pSize,i*pSize+i+1)
         samples = posteriors[i]
-        # pdf = gaussian_kde_weights(samples, weights=weights)
-        # x = np.linspace(*domains[i])
-        # y = pdf(x)
-        # plt.plot(x, y)
+        x = np.linspace(*domains[i],2000)
+        estimator = FFTKDE(kernel='gaussian', bw=0.01)
+        y = estimator.fit(samples, weights=weights).evaluate(x)
+        plt.plot(x, y)
         plt.hist(samples,bins=50,range = domains[i],weights=weights,density=True) 
         # joint posteriors
         for j in range(i):
             subPltIndex = i*pSize + 1 + j
             plt.subplot(pSize,pSize,subPltIndex)
             xp, yp = posteriors[j],posteriors[i]
-            xy = np.vstack([xp,yp])
-            color = gaussian_kde_weights(xy,weights=weights)(xy)
-            idx = color.argsort()
-            xps,yps,cs = xp[idx],yp[idx],color[idx]
-            # ws = weights[idx]
-            plt.scatter(xps,yps,c=cs,s=0.2,cmap='hot')
+            xy = np.vstack([xp,yp]).T
+            kde = FFTKDE(kernel='gaussian', norm=2,bw=0.05)
+            grid, points = kde.fit(xy,weights).evaluate(2**7)
+            # The grid is of shape (obs, dims), points are of shape (obs, 1)
+            x, y = np.unique(grid[:, 0]), np.unique(grid[:, 1])
+            z = points.reshape(2**7, 2**7).T
+            # Plot the kernel density estimate
             ax = plt.gca()
-            ax.set_facecolor('k')
+            ax.contourf(x, y, z, 1000, cmap="hot")
             plt.xlim(domains[j])
             plt.ylim(domains[i])
     plt.tight_layout()
