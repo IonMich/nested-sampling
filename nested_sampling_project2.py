@@ -11,11 +11,14 @@
 #  Posterior   is P(x,z) = L(x,z) / Z estimating lighthouse position
 #  Information is H = INTEGRAL P(x,z) log(P(x,z)/Prior(x,z)) dxdz
 
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+plt.style.use('dark_background')
 from sklearn.cluster import KMeans
 from mininest import nested_sampling
+from scipy.stats import gaussian_kde
+from gaussian_weighted_kde import gaussian_kde_weights
 
 def generatePositions(lightHCoords, samples_for_eachLH):
     """
@@ -45,8 +48,8 @@ def generatePositions(lightHCoords, samples_for_eachLH):
 
     return X,Y
 
-n = 80             # number of objects
-max_iter = 50000     # number of iterations
+n = 100            # number of objects
+max_iter = 50000    # number of iterations
 dim = 3
 transverseDim = dim - 1
 model_num_LH = 2
@@ -54,10 +57,11 @@ model_num_LH = 2
 assert(dim==2 or dim==3)
 
 # Number of flashes
-N = 4000
+N = 1000
 #np.random.seed(0)
 LHactualCoords=([[1.50,1.20,0.80],[-1.50,1.20,0.80]]) #Actual Coordinates of Light Houses
 # LHactualCoords=([[1.50,1.10,0.70]]) #Actual Coordinates of Light Houses
+actual = np.array(LHactualCoords)
 flashesPositions = generatePositions(LHactualCoords, N)
 
 #map of unit domain to the spatial domain
@@ -129,8 +133,8 @@ class LHouses():
         """
 
         """
-        return LHouses(self.unitCoords) 
-        
+        return LHouses(self.unitCoords)
+
 
 def logLhoodLHouse(lightHCoords):
     """
@@ -211,8 +215,7 @@ def explore(Obj,logLstar):
 
 def cornerplots(posteriors,weights=None):
     """
-    NOTE: cornerplots converts (2,3,2000) shaped posterior to (6,2000) shaped posteriorFlat if we have 2 lighthouses
-    no effect for 1 LHouse
+    
     """
     pSize = posteriors[...,0].size # total number of posterior coordinates (3 for a single lhouse)
     numLhouses = pSize//dim
@@ -222,14 +225,28 @@ def cornerplots(posteriors,weights=None):
     plt.figure('posteriors')
     for i in range(pSize):
         plt.subplot(pSize,pSize,i*pSize+i+1)
-        plt.hist(posteriors[i],bins=50,range = domains[i],weights=weights,density=True) 
+        samples = posteriors[i]
+        # pdf = gaussian_kde_weights(samples, weights=weights)
+        # x = np.linspace(*domains[i])
+        # y = pdf(x)
+        # plt.plot(x, y)
+        plt.hist(samples,bins=50,range = domains[i],weights=weights,density=True) 
         # joint posteriors
         for j in range(i):
             subPltIndex = i*pSize + 1 + j
             plt.subplot(pSize,pSize,subPltIndex)
-            plt.scatter(posteriors[j],posteriors[i],s=2*weights/np.max(weights))
+            xp, yp = posteriors[j],posteriors[i]
+            xy = np.vstack([xp,yp])
+            color = gaussian_kde_weights(xy,weights=weights)(xy)
+            idx = color.argsort()
+            xps,yps,cs = xp[idx],yp[idx],color[idx]
+            # ws = weights[idx]
+            plt.scatter(xps,yps,c=cs,s=0.2,cmap='hot')
+            ax = plt.gca()
+            ax.set_facecolor('k')
             plt.xlim(domains[j])
             plt.ylim(domains[i])
+    plt.tight_layout()
 
 def plot_weights(weights):
     plt.figure('weights')
@@ -241,8 +258,26 @@ def threeDimPlot(posteriors,weights=None):
     """
     fig = plt.figure('{}-d plot'.format(dim))
     ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(xs=posteriors[0,:],ys=posteriors[1,:],zs=posteriors[2,:],s=2*weights/np.max(weights))
- 
+    xp, yp, zp = posteriors[0,:],posteriors[1,:],posteriors[2,:]
+    xyz = np.vstack([xp,yp,zp])
+    color = gaussian_kde_weights(xyz,weights=weights)(xyz)
+    idx = color.argsort()
+    xps,yps,zps,cs,ws = xp[idx],yp[idx],zp[idx],color[idx],weights[idx]
+    scatter = ax.scatter(xs=xps,ys=yps,zs=zps,s=2*ws/np.max(ws),c=cs, alpha=0.5,cmap='hot',label='Weighted Posterior')
+    plt.colorbar(scatter)
+    ax.scatter(xs=actual[...,0],ys=actual[...,1],zs=actual[...,2],marker = '*',color='red',s=200,depthshade=False,label='Actual LH')
+    x , y , z = [] , [] , []
+    for i in range(model_num_LH):
+        x.append(clusterCenterPositions[i][0])
+        y.append(clusterCenterPositions[i][1])
+        z.append(clusterCenterPositions[i][-1])
+    ax.scatter(x,y,z,marker = '*',color='green',s=200,depthshade=False,label='Cluster Estimate')
+    ax.set_xlim(-2,2),ax.set_ylim(-2,2),ax.set_zlim(0,2)
+    ax.set_xlabel('X axis'),ax.set_ylabel('Y axis'),ax.set_zlabel('Z axis')
+    ax.set_title('A 3D-Plot of posterior points',weight='bold',size=12)
+    plt.legend()
+    plt.tight_layout()
+
 def clustering(posteriors,weights=None,extraClusters=6):
     posteriorPoints = posteriors.T
     kmeans = KMeans(n_clusters=model_num_LH+extraClusters,max_iter=1000,tol=1E-7,n_init=100).fit(posteriorPoints,weights)
@@ -289,21 +324,20 @@ def get_statistics(results,weights=None):
         sqrCoords += weights[i] * coords * coords
     
     print("Num of Iterations: %i" %ni)
-    
+
     meanX, sigmaX = avgCoords[0], np.sqrt(sqrCoords[0]-avgCoords[0]*avgCoords[0])
     print("mean(x) = %f, stddev(x) = %f" %(meanX, sigmaX))
-    
-    if dim ==3: 
+
+    if dim==3:
         meanY, sigmaY = avgCoords[1], np.sqrt(sqrCoords[1]-avgCoords[1]*avgCoords[1])
         print("mean(y) = %f, stddev(y) = %f" %(meanY, sigmaY))
-    
+
     meanZ, sigmaZ = avgCoords[-1], np.sqrt(sqrCoords[-1]-avgCoords[-1]*avgCoords[-1])
     print("mean(z) = %f, stddev(z) = %f" %(meanZ, sigmaZ))
-    
 
     logZ_sdev = results['logZ_sdev']
     print("Evidence: ln(Z) = %g +- %g"%(logZ,logZ_sdev))
-    
+
     # Analyze the changes in x,y,z and evidence for different z values
     statData = []
     statData.append((meanX, sigmaX))
@@ -311,7 +345,7 @@ def get_statistics(results,weights=None):
     statData.append((meanZ, sigmaZ))
     statData.append((logZ, logZ_sdev))
     return statData
-    
+
 def process_results(results):
     """
     return posterior numpy array in shape (numlhouses,dim,ni)
@@ -323,12 +357,15 @@ def process_results(results):
         statData = get_statistics(results,weights)
     else:
         statData = None
-    if dim==3: threeDimPlot(posteriors,weights)
-    cornerplots(posteriors,weights)
     return posteriors, weights, clusterCenterPositions, kmeans, statData
+
+def do_plots(posteriors,weights):
+    plot_weights(weights)
+    if dim==3: threeDimPlot(posteriors,weights)
+    cornerplots(posteriors, weights)
 
 if __name__ == "__main__":
     results = nested_sampling(n, max_iter, sample_from_prior, explore)
     posteriors, weights, clusterCenterPositions, kmeans, statData = process_results(results)
-    plot_weights(weights)
+    do_plots(posteriors,weights)
     plt.show()
