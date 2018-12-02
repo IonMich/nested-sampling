@@ -222,7 +222,7 @@ def cornerplots(posteriors, weights=None):
     plt.figure('posteriors')
     for i in range(pSize):
         plt.subplot(pSize,pSize,i*pSize+i+1)
-        plt.hist(posteriors[i],100,range = domains[i], weights = weights)
+        plt.hist(posteriors[i],50,range = domains[i], weights = weights)
         # joint posteriors
         for j in range(i):
             subPltIndex = i*pSize + 1 + j
