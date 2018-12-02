@@ -231,13 +231,27 @@ def cornerplots(posteriors):
             plt.xlim(domains[j])
             plt.ylim(domains[i])
     
-def threeDimPlot(posteriors):
+def threeDimPlot(posteriors,weights=None):
     """
     assumes that posteriors is (dim,totalSamples) shaped numpy array
     """
     fig = plt.figure('{}-d plot'.format(dim))
-    ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(xs=posteriors[0,:],ys=posteriors[1,:],zs=posteriors[2,:])
+    ax = fig.add_subplot(111, projection='3d')    
+    ax.scatter(xs=posteriors[0,:],ys=posteriors[1,:],zs=posteriors[2,:],s=0.2)
+    ax.scatter((-1.50,1.50),(1.10,1.10),(0.70,0.70),marker = 'o',color='red',s=20)
+    x,y,z=[],[],[]
+    for i in range(2):
+        x.append(kmeans.cluster_centers_[i][0])
+        y.append(kmeans.cluster_centers_[i][1])
+        z.append(kmeans.cluster_centers_[i][-1])
+    ax.scatter(x,y,z,marker = 'o',color='black',s=20)
+    ax.set_xlim(-2,2)
+    ax.set_ylim(-2,2)
+    ax.set_zlim(0,2)
+    ax.set_xlabel('X axis')
+    ax.set_ylabel('Y axis')
+    ax.set_zlabel('Z axis')
+    ax.set_title('A 3D-Plot of posterior points',weight='bold',size=12)
  
 def clustering(posteriors):
     ## TODO: incorporate sample weight in the .fit() params!!
@@ -275,14 +289,14 @@ def get_statistics(results):
     print("Num of Iterations: %i" %ni)
     
     meanX, sigmaX = avgCoords[0], np.sqrt(sqrCoords[0]-avgCoords[0]*avgCoords[0])
-    print("mean(x) = %f, stddev(x) = %f" %(meanX, sigmaX));
+    print("mean(x) = %f, stddev(x) = %f" %(meanX, sigmaX))
     
     if dim ==3: 
         meanY, sigmaY = avgCoords[1], np.sqrt(sqrCoords[1]-avgCoords[1]*avgCoords[1])
-        print("mean(y) = %f, stddev(y) = %f" %(meanY, sigmaY));
+        print("mean(y) = %f, stddev(y) = %f" %(meanY, sigmaY))
     
     meanZ, sigmaZ = avgCoords[-1], np.sqrt(sqrCoords[-1]-avgCoords[-1]*avgCoords[-1])
-    print("mean(z) = %f, stddev(z) = %f" %(meanZ, sigmaZ));
+    print("mean(z) = %f, stddev(z) = %f" %(meanZ, sigmaZ))
     
 
     logZ_sdev = results['logZ_sdev']
@@ -306,11 +320,14 @@ def process_results(results):
         statData = get_statistics(results)
     else:
         statData = None
+    return posteriors, kmeans, statData
+
+def do_plots(posteriors):
     if dim==3: threeDimPlot(posteriors)
     cornerplots(posteriors)
-    return posteriors, kmeans, statData
 
 if __name__ == "__main__":
     results = nested_sampling(n, max_iter, sample_from_prior, explore)
     posteriors, kmeans, statData = process_results(results)
+    do_plots(posteriors)
     plt.show()
