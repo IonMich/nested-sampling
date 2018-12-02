@@ -231,7 +231,7 @@ def cornerplots(posteriors):
             plt.xlim(domains[j])
             plt.ylim(domains[i])
     
-def threeDimPlot(posteriors):
+def threeDimPlot(posteriors,weight=None):
     """
     assumes that posteriors is (dim,totalSamples) shaped numpy array
     """
