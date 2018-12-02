@@ -17,7 +17,7 @@ from mpl_toolkits.mplot3d import Axes3D
 plt.style.use('dark_background')
 from sklearn.cluster import KMeans
 from mininest import nested_sampling
-from KDEpy import FFTKDE
+from KDEpy import FFTKDE, TreeKDE
 
 def generatePositions(lightHCoords, samples_for_eachLH):
     """
@@ -58,7 +58,7 @@ assert(dim==2 or dim==3)
 # Number of flashes
 N = 1000
 #np.random.seed(0)
-LHactualCoords=([[1.50,1.20,0.80],[-1.50,1.20,0.80]]) #Actual Coordinates of Light Houses
+LHactualCoords=([[1.50,1.20,0.80],[-1.50,-1.20,0.60]]) #Actual Coordinates of Light Houses
 # LHactualCoords=([[1.50,1.10,0.70]]) #Actual Coordinates of Light Houses
 actual = np.array(LHactualCoords)
 flashesPositions = generatePositions(LHactualCoords, N)
@@ -237,10 +237,10 @@ def cornerplots(posteriors,weights=None):
             xp, yp = posteriors[j],posteriors[i]
             xy = np.vstack([xp,yp]).T
             kde = FFTKDE(kernel='gaussian', norm=2,bw=0.05)
-            grid, points = kde.fit(xy,weights).evaluate(2**7)
+            grid, points = kde.fit(xy,weights).evaluate(2**8)
             # The grid is of shape (obs, dims), points are of shape (obs, 1)
             x, y = np.unique(grid[:, 0]), np.unique(grid[:, 1])
-            z = points.reshape(2**7, 2**7).T
+            z = points.reshape(2**8, 2**8).T
             # Plot the kernel density estimate
             ax = plt.gca()
             ax.contourf(x, y, z, 1000, cmap="hot")
@@ -259,12 +259,32 @@ def threeDimPlot(posteriors,weights=None):
     fig = plt.figure('{}-d plot'.format(dim))
     ax = fig.add_subplot(111, projection='3d')
     xp, yp, zp = posteriors[0,:],posteriors[1,:],posteriors[2,:]
-    xyz = np.vstack([xp,yp,zp])
-    color = gaussian_kde_weights(xyz,weights=weights)(xyz)
-    idx = color.argsort()
-    xps,yps,zps,cs,ws = xp[idx],yp[idx],zp[idx],color[idx],weights[idx]
-    scatter = ax.scatter(xs=xps,ys=yps,zs=zps,s=2*ws/np.max(ws),c=cs, alpha=0.5,cmap='hot',label='Weighted Posterior')
+    xyz = np.vstack([xp,yp,zp]).T
+    kde = TreeKDE(kernel='gaussian', norm=2,bw=0.05)
+    color = kde.fit(xyz,weights).evaluate(xyz)
+    ax = plt.gca()
+    scatter = ax.scatter(xs=xp, ys=yp, zs=zp, c=color,cmap="hot")
     plt.colorbar(scatter)
+    
+    for i in range(len(LHactualCoords)):
+        for j in range(3):
+            if j!=0:
+                xA = [LHactualCoords[i][0], LHactualCoords[i][0]]
+                xC = [clusterCenterPositions[i][0],clusterCenterPositions[i][0]]
+            else:
+                xA = xC = [-2,2]
+            if j!=1:
+                yA = [LHactualCoords[i][1], LHactualCoords[i][1]]
+                yC = [clusterCenterPositions[i][1],clusterCenterPositions[i][1]]
+            else:
+                yA = yC = [-2,2]
+            if j!=2:
+                zA = [LHactualCoords[i][2], LHactualCoords[i][2]]
+                zC = [clusterCenterPositions[i][2],clusterCenterPositions[i][2]]
+            else:
+                zA = zC = [0, 2]
+            ax.plot(xA,yA,zA,'r--',alpha=0.8, linewidth=3)
+            ax.plot(xC,yC,zC,'g--',alpha=0.8, linewidth=3)
     ax.scatter(xs=actual[...,0],ys=actual[...,1],zs=actual[...,2],marker = '*',color='red',s=200,depthshade=False,label='Actual LH')
     x , y , z = [] , [] , []
     for i in range(model_num_LH):
@@ -282,6 +302,7 @@ def clustering(posteriors,weights=None,extraClusters=6):
     posteriorPoints = posteriors.T
     kmeans = KMeans(n_clusters=model_num_LH+extraClusters,max_iter=1000,tol=1E-7,n_init=100).fit(posteriorPoints,weights)
     clusterCenterPositions = kmeans.cluster_centers_[:model_num_LH]
+    print("Cluster Positions:")
     print(clusterCenterPositions)
     print(kmeans.inertia_)
     return clusterCenterPositions , kmeans
@@ -307,7 +328,6 @@ def get_weights(results):
         weights[i] = np.exp(samples[i].logWt - logZ)
     weights = weights * model_num_LH
     weights = np.array(weights)
-    print(weights)
 
     return weights
 
