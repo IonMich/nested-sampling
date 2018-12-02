@@ -45,8 +45,8 @@ def generatePositions(lightHCoords, samples_for_eachLH):
 
     return X,Y
 
-n = 20             # number of objects
-max_iter = 4000     # number of iterations
+n = 80             # number of objects
+max_iter = 50000     # number of iterations
 dim = 3
 transverseDim = dim - 1
 model_num_LH = 2
@@ -56,8 +56,8 @@ assert(dim==2 or dim==3)
 # Number of flashes
 N = 4000
 #np.random.seed(0)
-LHactualCoords=([[1.50,1.10,0.70],[-1.50,1.10,0.70]]) #Actual Coordinates of Light Houses
-#LHactualCoords=([[1.50,1.10,0.70]]) #Actual Coordinates of Light Houses
+LHactualCoords=([[1.50,1.20,0.80],[-1.50,1.20,0.80]]) #Actual Coordinates of Light Houses
+# LHactualCoords=([[1.50,1.10,0.70]]) #Actual Coordinates of Light Houses
 flashesPositions = generatePositions(LHactualCoords, N)
 
 #map of unit domain to the spatial domain
@@ -209,7 +209,7 @@ def explore(Obj,logLstar):
 #    print(logLstar, accept)
     return ret
 
-def cornerplots(posteriors):
+def cornerplots(posteriors,weights=None):
     """
     NOTE: cornerplots converts (2,3,2000) shaped posterior to (6,2000) shaped posteriorFlat if we have 2 lighthouses
     no effect for 1 LHouse
@@ -222,30 +222,34 @@ def cornerplots(posteriors):
     plt.figure('posteriors')
     for i in range(pSize):
         plt.subplot(pSize,pSize,i*pSize+i+1)
-        plt.hist(posteriors[i],100,range = domains[i])
+        plt.hist(posteriors[i],bins=50,range = domains[i],weights=weights,density=True) 
         # joint posteriors
         for j in range(i):
             subPltIndex = i*pSize + 1 + j
             plt.subplot(pSize,pSize,subPltIndex)
-            plt.plot(posteriors[j],posteriors[i],'.')
+            plt.scatter(posteriors[j],posteriors[i],s=2*weights/np.max(weights))
             plt.xlim(domains[j])
             plt.ylim(domains[i])
-    
-def threeDimPlot(posteriors):
+
+def plot_weights(weights):
+    plt.figure('weights')
+    plt.plot(weights[:len(weights)//model_num_LH])
+
+def threeDimPlot(posteriors,weights=None):
     """
     assumes that posteriors is (dim,totalSamples) shaped numpy array
     """
     fig = plt.figure('{}-d plot'.format(dim))
     ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(xs=posteriors[0,:],ys=posteriors[1,:],zs=posteriors[2,:])
+    ax.scatter(xs=posteriors[0,:],ys=posteriors[1,:],zs=posteriors[2,:],s=2*weights/np.max(weights))
  
-def clustering(posteriors):
-    ## TODO: incorporate sample weight in the .fit() params!!
+def clustering(posteriors,weights=None,extraClusters=6):
     posteriorPoints = posteriors.T
-    kmeans = KMeans(n_clusters=model_num_LH, random_state=0).fit(posteriorPoints)
-    print(kmeans.cluster_centers_)
+    kmeans = KMeans(n_clusters=model_num_LH+extraClusters,max_iter=1000,tol=1E-7,n_init=100).fit(posteriorPoints,weights)
+    clusterCenterPositions = kmeans.cluster_centers_[:model_num_LH]
+    print(clusterCenterPositions)
     print(kmeans.inertia_)
-    return kmeans
+    return clusterCenterPositions , kmeans
     
 def get_posteriors(results):
     ni = results['num_iterations']
@@ -256,10 +260,23 @@ def get_posteriors(results):
         coords = samples[i].Coords
         posteriors[...,i] = coords
     posteriors = np.swapaxes(posteriors, 0, -2)
-    posteriors = posteriors.reshape((dim,model_num_LH*max_iter))
+    posteriors = posteriors.reshape((dim,model_num_LH*ni))
     return posteriors
 
-def get_statistics(results):   
+def get_weights(results):
+    ni = results['num_iterations']
+    samples = results['samples']
+    logZ = results['logZ']
+    weights = [0]*ni
+    for i in range(ni):
+        weights[i] = np.exp(samples[i].logWt - logZ)
+    weights = weights * model_num_LH
+    weights = np.array(weights)
+    print(weights)
+
+    return weights
+
+def get_statistics(results,weights=None):   
     ni = results['num_iterations']
     samples = results['samples']
     shape =  samples[0].Coords.shape
@@ -267,22 +284,21 @@ def get_statistics(results):
     sqrCoords = np.zeros(shape) # second moments of coordinates
     logZ = results['logZ']
     for i in range(ni):
-        w = np.exp(samples[i].logWt - logZ) # Proportional weight
         coords = samples[i].Coords
-        avgCoords += w * coords
-        sqrCoords += w * coords * coords
+        avgCoords += weights[i] * coords
+        sqrCoords += weights[i] * coords * coords
     
     print("Num of Iterations: %i" %ni)
     
     meanX, sigmaX = avgCoords[0], np.sqrt(sqrCoords[0]-avgCoords[0]*avgCoords[0])
-    print("mean(x) = %f, stddev(x) = %f" %(meanX, sigmaX));
+    print("mean(x) = %f, stddev(x) = %f" %(meanX, sigmaX))
     
     if dim ==3: 
         meanY, sigmaY = avgCoords[1], np.sqrt(sqrCoords[1]-avgCoords[1]*avgCoords[1])
-        print("mean(y) = %f, stddev(y) = %f" %(meanY, sigmaY));
+        print("mean(y) = %f, stddev(y) = %f" %(meanY, sigmaY))
     
     meanZ, sigmaZ = avgCoords[-1], np.sqrt(sqrCoords[-1]-avgCoords[-1]*avgCoords[-1])
-    print("mean(z) = %f, stddev(z) = %f" %(meanZ, sigmaZ));
+    print("mean(z) = %f, stddev(z) = %f" %(meanZ, sigmaZ))
     
 
     logZ_sdev = results['logZ_sdev']
@@ -301,16 +317,18 @@ def process_results(results):
     return posterior numpy array in shape (numlhouses,dim,ni)
     """
     posteriors = get_posteriors(results)
-    kmeans = clustering(posteriors)
+    weights = get_weights(results)
+    clusterCenterPositions , kmeans = clustering(posteriors,weights)
     if model_num_LH==1:
-        statData = get_statistics(results)
+        statData = get_statistics(results,weights)
     else:
         statData = None
-    if dim==3: threeDimPlot(posteriors)
-    cornerplots(posteriors)
-    return posteriors, kmeans, statData
+    if dim==3: threeDimPlot(posteriors,weights)
+    cornerplots(posteriors,weights)
+    return posteriors, weights, clusterCenterPositions, kmeans, statData
 
 if __name__ == "__main__":
     results = nested_sampling(n, max_iter, sample_from_prior, explore)
-    posteriors, kmeans, statData = process_results(results)
+    posteriors, weights, clusterCenterPositions, kmeans, statData = process_results(results)
+    plot_weights(weights)
     plt.show()
