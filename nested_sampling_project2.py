@@ -45,8 +45,8 @@ def generatePositions(lightHCoords, samples_for_eachLH):
 
     return X,Y
 
-n = 20             # number of objects
-max_iter = 4000     # number of iterations
+n = 100            # number of objects
+max_iter = 500000    # number of iterations
 dim = 3
 transverseDim = dim - 1
 model_num_LH = 2
@@ -54,7 +54,7 @@ model_num_LH = 2
 assert(dim==2 or dim==3)
 
 # Number of flashes
-N = 4000
+N = 1000
 #np.random.seed(0)
 LHactualCoords=([[1.50,1.10,0.70],[-1.50,1.10,0.70]]) #Actual Coordinates of Light Houses
 #LHactualCoords=([[1.50,1.10,0.70]]) #Actual Coordinates of Light Houses
@@ -129,8 +129,8 @@ class LHouses():
         """
 
         """
-        return LHouses(self.unitCoords) 
-        
+        return LHouses(self.unitCoords)
+
 
 def logLhoodLHouse(lightHCoords):
     """
@@ -209,7 +209,7 @@ def explore(Obj,logLstar):
 #    print(logLstar, accept)
     return ret
 
-def cornerplots(posteriors):
+def cornerplots(posteriors, weights=None):
     """
     NOTE: cornerplots converts (2,3,2000) shaped posterior to (6,2000) shaped posteriorFlat if we have 2 lighthouses
     no effect for 1 LHouse
@@ -222,7 +222,7 @@ def cornerplots(posteriors):
     plt.figure('posteriors')
     for i in range(pSize):
         plt.subplot(pSize,pSize,i*pSize+i+1)
-        plt.hist(posteriors[i],100,range = domains[i])
+        plt.hist(posteriors[i],100,range = domains[i], weights = weights)
         # joint posteriors
         for j in range(i):
             subPltIndex = i*pSize + 1 + j
@@ -230,7 +230,7 @@ def cornerplots(posteriors):
             plt.plot(posteriors[j],posteriors[i],'.')
             plt.xlim(domains[j])
             plt.ylim(domains[i])
-    
+
 def threeDimPlot(posteriors):
     """
     assumes that posteriors is (dim,totalSamples) shaped numpy array
@@ -238,7 +238,7 @@ def threeDimPlot(posteriors):
     fig = plt.figure('{}-d plot'.format(dim))
     ax = fig.add_subplot(111, projection='3d')
     ax.scatter(xs=posteriors[0,:],ys=posteriors[1,:],zs=posteriors[2,:])
- 
+
 def clustering(posteriors):
     ## TODO: incorporate sample weight in the .fit() params!!
     posteriorPoints = posteriors.T
@@ -246,7 +246,7 @@ def clustering(posteriors):
     print(kmeans.cluster_centers_)
     print(kmeans.inertia_)
     return kmeans
-    
+
 def get_posteriors(results):
     ni = results['num_iterations']
     samples = results['samples']
@@ -256,10 +256,10 @@ def get_posteriors(results):
         coords = samples[i].Coords
         posteriors[...,i] = coords
     posteriors = np.swapaxes(posteriors, 0, -2)
-    posteriors = posteriors.reshape((dim,model_num_LH*max_iter))
+    posteriors = posteriors.reshape((dim,model_num_LH*ni))
     return posteriors
 
-def get_statistics(results):   
+def get_statistics(results):
     ni = results['num_iterations']
     samples = results['samples']
     shape =  samples[0].Coords.shape
@@ -271,23 +271,23 @@ def get_statistics(results):
         coords = samples[i].Coords
         avgCoords += w * coords
         sqrCoords += w * coords * coords
-    
+
     print("Num of Iterations: %i" %ni)
-    
+
     meanX, sigmaX = avgCoords[0], np.sqrt(sqrCoords[0]-avgCoords[0]*avgCoords[0])
     print("mean(x) = %f, stddev(x) = %f" %(meanX, sigmaX));
-    
-    if dim ==3: 
+
+    if dim ==3:
         meanY, sigmaY = avgCoords[1], np.sqrt(sqrCoords[1]-avgCoords[1]*avgCoords[1])
         print("mean(y) = %f, stddev(y) = %f" %(meanY, sigmaY));
-    
+
     meanZ, sigmaZ = avgCoords[-1], np.sqrt(sqrCoords[-1]-avgCoords[-1]*avgCoords[-1])
     print("mean(z) = %f, stddev(z) = %f" %(meanZ, sigmaZ));
-    
+
 
     logZ_sdev = results['logZ_sdev']
     print("Evidence: ln(Z) = %g +- %g"%(logZ,logZ_sdev))
-    
+
     # Analyze the changes in x,y,z and evidence for different z values
     statData = []
     statData.append((meanX, sigmaX))
@@ -295,7 +295,7 @@ def get_statistics(results):
     statData.append((meanZ, sigmaZ))
     statData.append((logZ, logZ_sdev))
     return statData
-    
+
 def process_results(results):
     """
     return posterior numpy array in shape (numlhouses,dim,ni)
@@ -307,8 +307,27 @@ def process_results(results):
     else:
         statData = None
     if dim==3: threeDimPlot(posteriors)
-    cornerplots(posteriors)
+    cornerplots(posteriors, get_weights(results))
     return posteriors, kmeans, statData
+
+def get_weights(results):
+    ni = results['num_iterations']
+    samples = results['samples']
+    logZ = results['logZ']
+    weights = [0]*(ni)
+    for i in range(ni):
+        weights[i] = np.exp(samples[i].logWt - logZ)
+
+    weights = weights * model_num_LH
+    niarray = np.arange(0,ni,1)
+    weights = np.array(weights)
+    print(max(weights))
+
+    return weights
+
+
+
+
 
 if __name__ == "__main__":
     results = nested_sampling(n, max_iter, sample_from_prior, explore)
