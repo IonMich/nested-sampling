@@ -46,7 +46,7 @@ def generatePositions(lightHCoords, samples_for_eachLH):
     return X,Y
 
 n = 20             # number of objects
-max_iter = 4000     # number of iterations
+max_iter = 4000    # number of iterations
 dim = 3
 transverseDim = dim - 1
 model_num_LH = 2
@@ -56,7 +56,7 @@ assert(dim==2 or dim==3)
 # Number of flashes
 N = 4000
 #np.random.seed(0)
-LHactualCoords=([[1.50,1.10,0.70],[-1.50,1.10,0.70]]) #Actual Coordinates of Light Houses
+LHactualCoords=([[1.5,1.10,0.70],[-1.5,1.10,0.70]]) #Actual Coordinates of Light Houses
 #LHactualCoords=([[1.50,1.10,0.70]]) #Actual Coordinates of Light Houses
 flashesPositions = generatePositions(LHactualCoords, N)
 
@@ -209,7 +209,7 @@ def explore(Obj,logLstar):
 #    print(logLstar, accept)
     return ret
 
-def cornerplots(posteriors):
+def cornerplots(posteriors, wt=None):
     """
     NOTE: cornerplots converts (2,3,2000) shaped posterior to (6,2000) shaped posteriorFlat if we have 2 lighthouses
     no effect for 1 LHouse
@@ -222,14 +222,44 @@ def cornerplots(posteriors):
     plt.figure('posteriors')
     for i in range(pSize):
         plt.subplot(pSize,pSize,i*pSize+i+1)
-        plt.hist(posteriors[i],100,range = domains[i])
+        plt.subplots_adjust(wspace=0.5, hspace=0.5)
+        plt.hist(posteriors[i], 100, range=domains[i], weights=wt)
+        if i==0:
+            plt.title("X Posterior Data")
+            plt.axvline(x=LHactualCoords[0][0], color='r', linestyle='dashed')
+            if model_num_LH==2: plt.axvline(x=LHactualCoords[1][0], color='r', linestyle='dashed')
+        elif i==1:
+            plt.title("Y Posterior Data")
+            plt.axvline(x=LHactualCoords[0][1], color='r', linestyle='dashed', linewidth=2)
+            if model_num_LH==2: plt.axvline(x=LHactualCoords[1][1], color='r', linestyle='dashed')
+        else:
+            plt.title("Z Posterior Data")
+            plt.axvline(x=LHactualCoords[0][2], color='r', linestyle='dashed', linewidth=2)
+            if model_num_LH==2: plt.axvline(x=LHactualCoords[1][2], color='r', linestyle='dashed')
+        
         # joint posteriors
         for j in range(i):
             subPltIndex = i*pSize + 1 + j
             plt.subplot(pSize,pSize,subPltIndex)
+            plt.subplots_adjust(wspace=0.5, hspace=0.5)
             plt.plot(posteriors[j],posteriors[i],'.')
             plt.xlim(domains[j])
             plt.ylim(domains[i])
+            if i==1:
+                plt.ylabel('y')
+                plt.plot(LHactualCoords[0][0],LHactualCoords[0][1], marker='*', color='r')
+                if model_num_LH==2: plt.plot(LHactualCoords[1][0],LHactualCoords[1][1], marker='*', color='r')
+            else:
+                if j==0:
+                    plt.xlabel('x')
+                    plt.ylabel('z')
+                    plt.plot(LHactualCoords[0][0],LHactualCoords[0][2], marker='*', color='r')
+                    if model_num_LH==2: plt.plot(LHactualCoords[1][0],LHactualCoords[1][2], marker='*', color='r')
+                else:
+                    plt.xlabel('y')
+                    plt.plot(LHactualCoords[0][1],LHactualCoords[0][2], marker='*', color='r')
+                    if model_num_LH==2: plt.plot(LHactualCoords[1][1],LHactualCoords[1][2], marker='*', color='r')
+            
     
 def threeDimPlot(posteriors):
     """
@@ -239,10 +269,10 @@ def threeDimPlot(posteriors):
     ax = fig.add_subplot(111, projection='3d')
     ax.scatter(xs=posteriors[0,:],ys=posteriors[1,:],zs=posteriors[2,:])
  
-def clustering(posteriors):
+def clustering(posteriors, weights=None):
     ## TODO: incorporate sample weight in the .fit() params!!
     posteriorPoints = posteriors.T
-    kmeans = KMeans(n_clusters=model_num_LH, random_state=0).fit(posteriorPoints)
+    kmeans = KMeans(n_clusters=model_num_LH, random_state=0).fit(posteriorPoints, weights)
     print(kmeans.cluster_centers_)
     print(kmeans.inertia_)
     return kmeans
@@ -259,7 +289,21 @@ def get_posteriors(results):
     posteriors = posteriors.reshape((dim,model_num_LH*max_iter))
     return posteriors
 
-def get_statistics(results):   
+def get_weights(results):
+    ni = results['num_iterations']
+    samples = results['samples']
+    logZ = results['logZ']
+    weights = [0]*(ni)
+    for i in range(ni):
+        weights[i] = np.exp(samples[i].logWt - logZ)
+
+    weights = weights * model_num_LH
+    weights = np.array(weights)
+    print(max(weights))
+
+    return weights
+
+def get_statistics(results, weights=None):   
     ni = results['num_iterations']
     samples = results['samples']
     shape =  samples[0].Coords.shape
@@ -267,12 +311,13 @@ def get_statistics(results):
     sqrCoords = np.zeros(shape) # second moments of coordinates
     logZ = results['logZ']
     for i in range(ni):
-        w = np.exp(samples[i].logWt - logZ) # Proportional weight
         coords = samples[i].Coords
-        avgCoords += w * coords
-        sqrCoords += w * coords * coords
+        avgCoords += weights[i] * coords
+        sqrCoords += weights[i] * coords * coords
     
     print("Num of Iterations: %i" %ni)
+    
+    print("avgCoords[0]", avgCoords[0])
     
     meanX, sigmaX = avgCoords[0], np.sqrt(sqrCoords[0]-avgCoords[0]*avgCoords[0])
     print("mean(x) = %f, stddev(x) = %f" %(meanX, sigmaX))
@@ -301,16 +346,18 @@ def process_results(results):
     return posterior numpy array in shape (numlhouses,dim,ni)
     """
     posteriors = get_posteriors(results)
-    kmeans = clustering(posteriors)
+    weights = get_weights(results)
+    kmeans = clustering(posteriors, weights)
     if model_num_LH==1:
-        statData = get_statistics(results)
+        statData = get_statistics(results, weights)
     else:
         statData = None
+        
     if dim==3: threeDimPlot(posteriors)
-    cornerplots(posteriors)
-    return posteriors, kmeans, statData
+    cornerplots(posteriors, weights)
+    return posteriors, weights, kmeans, statData
 
 if __name__ == "__main__":
     results = nested_sampling(n, max_iter, sample_from_prior, explore)
-    posteriors, kmeans, statData = process_results(results)
+    posteriors, weights, kmeans, statData = process_results(results)
     plt.show()
