@@ -46,7 +46,7 @@ def generatePositions(lightHCoords, samples_for_eachLH):
     return X,Y
 
 n = 20             # number of objects
-max_iter = 4000    # number of iterations
+max_iter = 1000    # number of iterations
 dim = 3
 transverseDim = dim - 1
 model_num_LH = 2
@@ -219,7 +219,7 @@ def cornerplots(posteriors, wt=None):
     transverseDomain = (-2,2)
     depthDomain = (0,2)
     domains = sum( ((transverseDomain,)*transverseDim,(depthDomain,))*numLhouses, () )
-    plt.figure('posteriors')
+    fig = plt.figure("Posterior plots")
     for i in range(pSize):
         plt.subplot(pSize,pSize,i*pSize+i+1)
         plt.subplots_adjust(wspace=0.5, hspace=0.5)
@@ -240,9 +240,14 @@ def cornerplots(posteriors, wt=None):
         # joint posteriors
         for j in range(i):
             subPltIndex = i*pSize + 1 + j
-            plt.subplot(pSize,pSize,subPltIndex)
+            ax = fig.add_subplot(pSize,pSize,subPltIndex)
             plt.subplots_adjust(wspace=0.5, hspace=0.5)
-            plt.plot(posteriors[j],posteriors[i],'.')
+            ax.scatter(x=posteriors[j], y=posteriors[i],s=0.2)
+            
+#            plt.subplot(pSize,pSize,subPltIndex)
+#            plt.subplots_adjust(wspace=0.5, hspace=0.5)
+#            plt.plot(posteriors[j],posteriors[i],'.')
+            
             plt.xlim(domains[j])
             plt.ylim(domains[i])
             if i==1:
@@ -343,7 +348,6 @@ def get_statistics(results, weights=None):
     meanZ, sigmaZ = avgCoords[-1], np.sqrt(sqrCoords[-1]-avgCoords[-1]*avgCoords[-1])
     print("mean(z) = %f, stddev(z) = %f" %(meanZ, sigmaZ))
     
-
     logZ_sdev = results['logZ_sdev']
     print("Evidence: ln(Z) = %g +- %g"%(logZ,logZ_sdev))
     
@@ -371,7 +375,7 @@ def process_results(results):
 
 def do_plots(posteriors):
     if dim==3: threeDimPlot(posteriors)
-    cornerplots(posteriors)
+    cornerplots(posteriors, weights)
 
 if __name__ == "__main__":
     results = nested_sampling(n, max_iter, sample_from_prior, explore)
