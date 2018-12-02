@@ -261,13 +261,27 @@ def cornerplots(posteriors, wt=None):
                     if model_num_LH==2: plt.plot(LHactualCoords[1][1],LHactualCoords[1][2], marker='*', color='r')
             
     
-def threeDimPlot(posteriors):
+def threeDimPlot(posteriors,weights=None):
     """
     assumes that posteriors is (dim,totalSamples) shaped numpy array
     """
     fig = plt.figure('{}-d plot'.format(dim))
-    ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(xs=posteriors[0,:],ys=posteriors[1,:],zs=posteriors[2,:])
+    ax = fig.add_subplot(111, projection='3d')    
+    ax.scatter(xs=posteriors[0,:],ys=posteriors[1,:],zs=posteriors[2,:],s=0.2)
+    ax.scatter((-1.50,1.50),(1.10,1.10),(0.70,0.70),marker = 'o',color='red',s=20)
+    x,y,z=[],[],[]
+    for i in range(2):
+        x.append(kmeans.cluster_centers_[i][0])
+        y.append(kmeans.cluster_centers_[i][1])
+        z.append(kmeans.cluster_centers_[i][-1])
+    ax.scatter(x,y,z,marker = 'o',color='black',s=20)
+    ax.set_xlim(-2,2)
+    ax.set_ylim(-2,2)
+    ax.set_zlim(0,2)
+    ax.set_xlabel('X axis')
+    ax.set_ylabel('Y axis')
+    ax.set_zlabel('Z axis')
+    ax.set_title('A 3D-Plot of posterior points',weight='bold',size=12)
  
 def clustering(posteriors, weights=None):
     ## TODO: incorporate sample weight in the .fit() params!!
@@ -352,12 +366,15 @@ def process_results(results):
         statData = get_statistics(results, weights)
     else:
         statData = None
-        
-    if dim==3: threeDimPlot(posteriors)
-    cornerplots(posteriors, weights)
+
     return posteriors, weights, kmeans, statData
+
+def do_plots(posteriors):
+    if dim==3: threeDimPlot(posteriors)
+    cornerplots(posteriors)
 
 if __name__ == "__main__":
     results = nested_sampling(n, max_iter, sample_from_prior, explore)
     posteriors, weights, kmeans, statData = process_results(results)
+    do_plots(posteriors)
     plt.show()
