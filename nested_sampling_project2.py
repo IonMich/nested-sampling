@@ -227,7 +227,7 @@ def cornerplots(posteriors,weights=None):
     depthDomain = (0,2)
     domains = sum( ((transverseDomain,)*transverseDim,(depthDomain,))*numLhouses, () )
     plt.figure("Posterior plots")
-    plt.title("Posterior distribution of flashes")
+    plt.title("Posterior distribution of lighthouse(s)")
     for i in range(pSize):
         plt.subplot(pSize,pSize,i*pSize+i+1)
         samples = posteriors[i]
@@ -242,15 +242,15 @@ def cornerplots(posteriors,weights=None):
         if i==0:
             plt.title("X Posterior Data")
             plt.axvline(x=LHactualCoords[0][0], color='r', linestyle='dashed')
-            if model_num_LH==2: plt.axvline(x=LHactualCoords[1][0], color='r', linestyle='dashed')
+            if len(LHactualCoords)==2: plt.axvline(x=LHactualCoords[1][0], color='r', linestyle='dashed')
         elif i==1:
             plt.title("Y Posterior Data")
             plt.axvline(x=LHactualCoords[0][1], color='r', linestyle='dashed')
-            if model_num_LH==2: plt.axvline(x=LHactualCoords[1][1], color='r', linestyle='dashed')
+            if len(LHactualCoords)==2: plt.axvline(x=LHactualCoords[1][1], color='r', linestyle='dashed')
         else:
             plt.title("Z Posterior Data")
             plt.axvline(x=LHactualCoords[0][2], color='r', linestyle='dashed')
-            if model_num_LH==2: plt.axvline(x=LHactualCoords[1][2], color='r', linestyle='dashed') 
+            if len(LHactualCoords)==2: plt.axvline(x=LHactualCoords[1][2], color='r', linestyle='dashed') 
         # joint posteriors
         for j in range(i):
             subPltIndex = i*pSize + 1 + j
@@ -278,7 +278,7 @@ def cornerplots(posteriors,weights=None):
     plt.tight_layout()
     
 def plot_weights(weights):
-    plt.figure('weights')
+    plt.figure('Weights')
     plt.title("Weights distribution")
     plt.xlabel('Number of iterations')
     plt.ylabel('Weights')
@@ -289,7 +289,7 @@ def threeDimPlot(posteriors,weights=None):
     """
     assumes that posteriors is (dim,totalSamples) shaped numpy array
     """
-    fig = plt.figure('{}-d plot'.format(dim))
+    fig = plt.figure('{}-D plot'.format(dim))
     ax = fig.add_subplot(111, projection='3d')
     xp, yp, zp = posteriors[0,:],posteriors[1,:],posteriors[2,:]
     xyz = np.vstack([xp,yp,zp]).T
