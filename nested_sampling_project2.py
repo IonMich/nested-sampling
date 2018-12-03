@@ -70,7 +70,7 @@ transverse = lambda unit : 4.0 * unit - 2.0
 depth = lambda unit : 2.0 * unit
 
 plt.figure('Flashes (Data)')
-plt.title("Prior distribution of flashes")
+plt.title("Distribution of flashes")
 
 if dim==2:
     plt.hist(flashesPositions[0],50,range = (-10, 10))
@@ -280,8 +280,8 @@ def cornerplots(posteriors,weights=None):
 def plot_weights(weights):
     plt.figure('weights')
     plt.title("Weights distribution")
-    plt.xlabel('Number of points')
-    plt.ylabel('Weightage')
+    plt.xlabel('Number of iterations')
+    plt.ylabel('Weights')
 
     plt.plot(weights[:len(weights)//model_num_LH])
 
