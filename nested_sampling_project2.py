@@ -47,7 +47,7 @@ def generatePositions(lightHCoords, samples_for_eachLH):
 
     return X,Y
 
-n = 100            # number of objects
+n = 100             # number of objects
 max_iter = 50000    # number of iterations
 dim = 3
 transverseDim = dim - 1
@@ -57,11 +57,20 @@ assert(dim==2 or dim==3)
 
 # Number of flashes
 N = 1000
-#np.random.seed(0)
 
-LHactualCoords=([[1.50,1.20,0.80],[-1.50,-1.20,0.60]]) #Actual Coordinates of Light Houses
-# LHactualCoords=([[1.50,1.10,0.70]]) #Actual Coordinates of Light Houses
+# LHactualCoords=([[1.50,0.70]]) # One 2D LightHouse - Actual Coordinates
+# LHactualCoords=([[1.50,1.10,0.70]]) # One LightHouse - Actual Coordinates
+# LHactualCoords=([[1.50,1.20,0.80],[-1.50,-1.20,0.60]]) #Two LightHouses - Actual Coordinates
+#LHactualCoords=([[1.50,1.20,0.80],[-0.20,0.30,0.20],[-1.50,-1.20,0.60]]) #Three LightHouses - Actual Coordinates
+############# or generate random actual Lhouse positions
+actual_num_LH = 2
+LHactualCoords_transv=np.random.uniform(-2, 2, size=(actual_num_LH, transverseDim))
+LHactualCoords_depth=np.random.uniform(0, 2, size=(actual_num_LH, 1))
+LHactualCoords = np.hstack([LHactualCoords_transv,LHactualCoords_depth]).tolist() #list of actual coordinates
+#########################################################################################################
+
 actual = np.array(LHactualCoords)
+print("Actual Coordinates:\n",np.array(LHactualCoords))
 
 flashesPositions = generatePositions(LHactualCoords, N)
 
@@ -242,15 +251,18 @@ def cornerplots(posteriors,weights=None):
         if i==0:
             plt.title("X Posterior Data")
             plt.axvline(x=LHactualCoords[0][0], color='r', linestyle='dashed')
-            if len(LHactualCoords)==2: plt.axvline(x=LHactualCoords[1][0], color='r', linestyle='dashed')
+            for k in range(len(LHactualCoords)):
+                plt.axvline(x=LHactualCoords[k][0], color='r', linestyle='dashed')
         elif i==1:
             plt.title("Y Posterior Data")
             plt.axvline(x=LHactualCoords[0][1], color='r', linestyle='dashed')
-            if len(LHactualCoords)==2: plt.axvline(x=LHactualCoords[1][1], color='r', linestyle='dashed')
+            for k in range(len(LHactualCoords)):
+                plt.axvline(x=LHactualCoords[k][1], color='r', linestyle='dashed')
         else:
             plt.title("Z Posterior Data")
             plt.axvline(x=LHactualCoords[0][2], color='r', linestyle='dashed')
-            if len(LHactualCoords)==2: plt.axvline(x=LHactualCoords[1][2], color='r', linestyle='dashed') 
+            for k in range(len(LHactualCoords)):
+                plt.axvline(x=LHactualCoords[k][2], color='r', linestyle='dashed') 
         # joint posteriors
         for j in range(i):
             subPltIndex = i*pSize + 1 + j
