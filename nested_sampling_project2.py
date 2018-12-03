@@ -57,10 +57,20 @@ assert(dim==2 or dim==3)
 
 # Number of flashes
 N = 1000
-#np.random.seed(0)
-LHactualCoords=([[1.50,1.20,0.80],[-1.50,-1.20,0.60]]) #Actual Coordinates of Light Houses
-# LHactualCoords=([[1.50,1.10,0.70]]) #Actual Coordinates of Light Houses
+# LHactualCoords=([[1.50,0.70]]) # One 2D LightHouse - Actual Coordinates
+# LHactualCoords=([[1.50,1.10,0.70]]) # One LightHouse - Actual Coordinates
+# LHactualCoords=([[1.50,1.20,0.80],[-1.50,-1.20,0.60]]) #Two LightHouses - Actual Coordinates
+# LHactualCoords=([[1.50,1.20,0.80],[-0.20,0.30,0.20],[-1.50,-1.20,0.60]]) #Three LightHouses - Actual Coordinates
+############# or generate random actual Lhouse positions
+actual_num_LH = 2
+LHactualCoords_transv=np.random.uniform(-2, 2, size=(actual_num_LH, transverseDim))
+LHactualCoords_depth=np.random.uniform(0, 2, size=(actual_num_LH, 1))
+LHactualCoords = np.hstack([LHactualCoords_transv,LHactualCoords_depth]).tolist() #list of actual coordinates
+#########################################################################################################
+
 actual = np.array(LHactualCoords)
+print("Actual Coordinates:\n",np.array(LHactualCoords))
+
 flashesPositions = generatePositions(LHactualCoords, N)
 
 #map of unit domain to the spatial domain
