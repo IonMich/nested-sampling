@@ -47,7 +47,7 @@ def generatePositions(lightHCoords, samples_for_eachLH):
 
     return X,Y
 
-n = 100            # number of objects
+n = 100             # number of objects
 max_iter = 50000    # number of iterations
 dim = 3
 transverseDim = dim - 1
@@ -57,10 +57,11 @@ assert(dim==2 or dim==3)
 
 # Number of flashes
 N = 1000
+
 # LHactualCoords=([[1.50,0.70]]) # One 2D LightHouse - Actual Coordinates
 # LHactualCoords=([[1.50,1.10,0.70]]) # One LightHouse - Actual Coordinates
 # LHactualCoords=([[1.50,1.20,0.80],[-1.50,-1.20,0.60]]) #Two LightHouses - Actual Coordinates
-# LHactualCoords=([[1.50,1.20,0.80],[-0.20,0.30,0.20],[-1.50,-1.20,0.60]]) #Three LightHouses - Actual Coordinates
+#LHactualCoords=([[1.50,1.20,0.80],[-0.20,0.30,0.20],[-1.50,-1.20,0.60]]) #Three LightHouses - Actual Coordinates
 ############# or generate random actual Lhouse positions
 actual_num_LH = 2
 LHactualCoords_transv=np.random.uniform(-2, 2, size=(actual_num_LH, transverseDim))
@@ -78,13 +79,16 @@ transverse = lambda unit : 4.0 * unit - 2.0
 depth = lambda unit : 2.0 * unit
 
 plt.figure('Flashes (Data)')
+plt.title("Distribution of flashes")
+
 if dim==2:
     plt.hist(flashesPositions[0],50,range = (-10, 10))
 if dim==3:
     plt.plot(flashesPositions[0],flashesPositions[1],'.')
     plt.xlim([-10,10])
     plt.ylim([-10,10])
-
+plt.xlabel('x')
+plt.ylabel('y')
 
 class LHouses():
     """
@@ -231,7 +235,8 @@ def cornerplots(posteriors,weights=None):
     transverseDomain = (-2,2)
     depthDomain = (0,2)
     domains = sum( ((transverseDomain,)*transverseDim,(depthDomain,))*numLhouses, () )
-    plt.figure('posteriors')
+    plt.figure("Posterior plots")
+    plt.title("Posterior distribution of lighthouse(s)")
     for i in range(pSize):
         plt.subplot(pSize,pSize,i*pSize+i+1)
         samples = posteriors[i]
@@ -239,7 +244,25 @@ def cornerplots(posteriors,weights=None):
         estimator = TreeKDE(kernel='gaussian', bw=0.01)
         y = estimator.fit(samples, weights=weights).evaluate(x)
         plt.plot(x, y)
-        plt.hist(samples,bins=50,range = domains[i],weights=weights,density=True) 
+        try:
+            plt.hist(samples,bins=50,range = domains[i],weights=weights,density=True)
+        except AttributeError:
+            plt.hist(samples,bins=50,range = domains[i],weights=weights,normed=True)
+        if i==0:
+            plt.title("X Posterior Data")
+            plt.axvline(x=LHactualCoords[0][0], color='r', linestyle='dashed')
+            for k in range(len(LHactualCoords)):
+                plt.axvline(x=LHactualCoords[k][0], color='r', linestyle='dashed')
+        elif i==1:
+            plt.title("Y Posterior Data")
+            plt.axvline(x=LHactualCoords[0][1], color='r', linestyle='dashed')
+            for k in range(len(LHactualCoords)):
+                plt.axvline(x=LHactualCoords[k][1], color='r', linestyle='dashed')
+        else:
+            plt.title("Z Posterior Data")
+            plt.axvline(x=LHactualCoords[0][2], color='r', linestyle='dashed')
+            for k in range(len(LHactualCoords)):
+                plt.axvline(x=LHactualCoords[k][2], color='r', linestyle='dashed') 
         # joint posteriors
         for j in range(i):
             subPltIndex = i*pSize + 1 + j
@@ -256,17 +279,29 @@ def cornerplots(posteriors,weights=None):
             ax.contourf(x, y, z, 1000, cmap="hot")
             plt.xlim(domains[j])
             plt.ylim(domains[i])
+            if i==1:
+                plt.ylabel('y')
+            else:
+                if j==0:
+                    plt.xlabel('x')
+                    plt.ylabel('z')
+                else:
+                    plt.xlabel('y')
     plt.tight_layout()
-
+    
 def plot_weights(weights):
-    plt.figure('weights')
+    plt.figure('Weights')
+    plt.title("Weights distribution")
+    plt.xlabel('Number of iterations')
+    plt.ylabel('Weights')
+
     plt.plot(weights[:len(weights)//model_num_LH])
 
 def threeDimPlot(posteriors,weights=None):
     """
     assumes that posteriors is (dim,totalSamples) shaped numpy array
     """
-    fig = plt.figure('{}-d plot'.format(dim))
+    fig = plt.figure('{}-D plot'.format(dim))
     ax = fig.add_subplot(111, projection='3d')
     xp, yp, zp = posteriors[0,:],posteriors[1,:],posteriors[2,:]
     xyz = np.vstack([xp,yp,zp]).T
@@ -360,8 +395,9 @@ def get_statistics(results,weights=None):
         avgCoords += weights[i] * coords
         sqrCoords += weights[i] * coords * coords
     
-    print("Num of Iterations: %i" %ni)
-
+    print("Num of Iterations: %i" %ni)    
+    print("avgCoords[0]", avgCoords[0])
+    
     meanX, sigmaX = avgCoords[0], np.sqrt(sqrCoords[0]-avgCoords[0]*avgCoords[0])
     print("mean(x) = %f, stddev(x) = %f" %(meanX, sigmaX))
 
@@ -371,7 +407,6 @@ def get_statistics(results,weights=None):
 
     meanZ, sigmaZ = avgCoords[-1], np.sqrt(sqrCoords[-1]-avgCoords[-1]*avgCoords[-1])
     print("mean(z) = %f, stddev(z) = %f" %(meanZ, sigmaZ))
-
     logZ_sdev = results['logZ_sdev']
     print("Evidence: ln(Z) = %g +- %g"%(logZ,logZ_sdev))
 
@@ -404,6 +439,7 @@ def do_plots(posteriors,weights):
 
 if __name__ == "__main__":
     results = nested_sampling(n, max_iter, sample_from_prior, explore)
+
     posteriors, weights, clusterCenterPositions, kmeans, statData = process_results(results)
     do_plots(posteriors,weights)
     plt.show()
