@@ -11,11 +11,13 @@
 #  Posterior   is P(x,z) = L(x,z) / Z estimating lighthouse position
 #  Information is H = INTEGRAL P(x,z) log(P(x,z)/Prior(x,z)) dxdz
 
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+plt.style.use('dark_background')
 from sklearn.cluster import KMeans
 from mininest import nested_sampling
+from KDEpy import FFTKDE
 
 def generatePositions(lightHCoords, samples_for_eachLH):
     """
@@ -45,8 +47,8 @@ def generatePositions(lightHCoords, samples_for_eachLH):
 
     return X,Y
 
-n = 20             # number of objects
-max_iter = 1000    # number of iterations
+n = 100            # number of objects
+max_iter = 50000    # number of iterations
 dim = 3
 transverseDim = dim - 1
 model_num_LH = 2
@@ -54,10 +56,13 @@ model_num_LH = 2
 assert(dim==2 or dim==3)
 
 # Number of flashes
-N = 4000
+N = 1000
 #np.random.seed(0)
-LHactualCoords=([[1.5,1.10,0.70],[-1.5,1.10,0.70]]) #Actual Coordinates of Light Houses
-#LHactualCoords=([[1.50,1.10,0.70]]) #Actual Coordinates of Light Houses
+
+LHactualCoords=([[1.50,1.20,0.80],[-1.50,1.20,0.80]]) #Actual Coordinates of Light Houses
+# LHactualCoords=([[1.50,1.10,0.70]]) #Actual Coordinates of Light Houses
+actual = np.array(LHactualCoords)
+
 flashesPositions = generatePositions(LHactualCoords, N)
 
 #map of unit domain to the spatial domain
@@ -129,8 +134,8 @@ class LHouses():
         """
 
         """
-        return LHouses(self.unitCoords) 
-        
+        return LHouses(self.unitCoords)
+
 
 def logLhoodLHouse(lightHCoords):
     """
@@ -209,92 +214,118 @@ def explore(Obj,logLstar):
 #    print(logLstar, accept)
     return ret
 
-def cornerplots(posteriors, wt=None):
+def cornerplots(posteriors,weights=None):
     """
-    NOTE: cornerplots converts (2,3,2000) shaped posterior to (6,2000) shaped posteriorFlat if we have 2 lighthouses
-    no effect for 1 LHouse
+    note bandwidth bw=0.01
     """
     pSize = posteriors[...,0].size # total number of posterior coordinates (3 for a single lhouse)
     numLhouses = pSize//dim
     transverseDomain = (-2,2)
     depthDomain = (0,2)
     domains = sum( ((transverseDomain,)*transverseDim,(depthDomain,))*numLhouses, () )
-    fig = plt.figure("Posterior plots")
+    plt.figure("Posterior plots")
     for i in range(pSize):
         plt.subplot(pSize,pSize,i*pSize+i+1)
-        plt.subplots_adjust(wspace=0.5, hspace=0.5)
-        plt.hist(posteriors[i], 100, range=domains[i], weights=wt)
-        if i==0:
-            plt.title("X Posterior Data")
-            plt.axvline(x=LHactualCoords[0][0], color='r', linestyle='dashed')
-            if model_num_LH==2: plt.axvline(x=LHactualCoords[1][0], color='r', linestyle='dashed')
-        elif i==1:
-            plt.title("Y Posterior Data")
-            plt.axvline(x=LHactualCoords[0][1], color='r', linestyle='dashed', linewidth=2)
-            if model_num_LH==2: plt.axvline(x=LHactualCoords[1][1], color='r', linestyle='dashed')
-        else:
-            plt.title("Z Posterior Data")
-            plt.axvline(x=LHactualCoords[0][2], color='r', linestyle='dashed', linewidth=2)
-            if model_num_LH==2: plt.axvline(x=LHactualCoords[1][2], color='r', linestyle='dashed')
-        
+        samples = posteriors[i]
+        x = np.linspace(*domains[i],2000)
+        estimator = FFTKDE(kernel='gaussian', bw=0.01)
+        y = estimator.fit(samples, weights=weights).evaluate(x)
+        plt.plot(x, y)
+        plt.hist(samples,bins=50,range = domains[i],weights=weights,density=True) 
         # joint posteriors
         for j in range(i):
             subPltIndex = i*pSize + 1 + j
-            ax = fig.add_subplot(pSize,pSize,subPltIndex)
-            plt.subplots_adjust(wspace=0.5, hspace=0.5)
-            ax.scatter(x=posteriors[j], y=posteriors[i],s=0.2)
-            
-#            plt.subplot(pSize,pSize,subPltIndex)
-#            plt.subplots_adjust(wspace=0.5, hspace=0.5)
-#            plt.plot(posteriors[j],posteriors[i],'.')
-            
+            plt.subplot(pSize,pSize,subPltIndex)
+            xp, yp = posteriors[j],posteriors[i]
+            xy = np.vstack([xp,yp]).T
+            kde = FFTKDE(kernel='gaussian', norm=2,bw=0.05)
+            grid, points = kde.fit(xy,weights).evaluate(2**7)
+            # The grid is of shape (obs, dims), points are of shape (obs, 1)
+            x, y = np.unique(grid[:, 0]), np.unique(grid[:, 1])
+            z = points.reshape(2**7, 2**7).T
+            # Plot the kernel density estimate
+            ax = plt.gca()
+            ax.contourf(x, y, z, 1000, cmap="hot")
             plt.xlim(domains[j])
             plt.ylim(domains[i])
-            if i==1:
-                plt.ylabel('y')
-                plt.plot(LHactualCoords[0][0],LHactualCoords[0][1], marker='*', color='r')
-                if model_num_LH==2: plt.plot(LHactualCoords[1][0],LHactualCoords[1][1], marker='*', color='r')
-            else:
-                if j==0:
-                    plt.xlabel('x')
-                    plt.ylabel('z')
-                    plt.plot(LHactualCoords[0][0],LHactualCoords[0][2], marker='*', color='r')
-                    if model_num_LH==2: plt.plot(LHactualCoords[1][0],LHactualCoords[1][2], marker='*', color='r')
-                else:
-                    plt.xlabel('y')
-                    plt.plot(LHactualCoords[0][1],LHactualCoords[0][2], marker='*', color='r')
-                    if model_num_LH==2: plt.plot(LHactualCoords[1][1],LHactualCoords[1][2], marker='*', color='r')
+    plt.tight_layout()
+    
+#        plt.subplots_adjust(wspace=0.5, hspace=0.5)
+#        plt.hist(posteriors[i], 100, range=domains[i], weights=wt)
+#        if i==0:
+#            plt.title("X Posterior Data")
+#            plt.axvline(x=LHactualCoords[0][0], color='r', linestyle='dashed')
+#            if model_num_LH==2: plt.axvline(x=LHactualCoords[1][0], color='r', linestyle='dashed')
+#        elif i==1:
+#            plt.title("Y Posterior Data")
+#            plt.axvline(x=LHactualCoords[0][1], color='r', linestyle='dashed', linewidth=2)
+#            if model_num_LH==2: plt.axvline(x=LHactualCoords[1][1], color='r', linestyle='dashed')
+#        else:
+#            plt.title("Z Posterior Data")
+#            plt.axvline(x=LHactualCoords[0][2], color='r', linestyle='dashed', linewidth=2)
+#            if model_num_LH==2: plt.axvline(x=LHactualCoords[1][2], color='r', linestyle='dashed')
+#        
+#        # joint posteriors
+#        for j in range(i):
+#            subPltIndex = i*pSize + 1 + j
+#            ax = fig.add_subplot(pSize,pSize,subPltIndex)
+#            plt.subplots_adjust(wspace=0.5, hspace=0.5)
+#            ax.scatter(x=posteriors[j], y=posteriors[i],s=0.2)
+#            plt.xlim(domains[j])
+#            plt.ylim(domains[i])
+#            if i==1:
+#                plt.ylabel('y')
+#                plt.plot(LHactualCoords[0][0],LHactualCoords[0][1], marker='*', color='r')
+#                if model_num_LH==2: plt.plot(LHactualCoords[1][0],LHactualCoords[1][1], marker='*', color='r')
+#            else:
+#                if j==0:
+#                    plt.xlabel('x')
+#                    plt.ylabel('z')
+#                    plt.plot(LHactualCoords[0][0],LHactualCoords[0][2], marker='*', color='r')
+#                    if model_num_LH==2: plt.plot(LHactualCoords[1][0],LHactualCoords[1][2], marker='*', color='r')
+#                else:
+#                    plt.xlabel('y')
+#                    plt.plot(LHactualCoords[0][1],LHactualCoords[0][2], marker='*', color='r')
+#                    if model_num_LH==2: plt.plot(LHactualCoords[1][1],LHactualCoords[1][2], marker='*', color='r')
             
     
+def plot_weights(weights):
+    plt.figure('weights')
+    plt.plot(weights[:len(weights)//model_num_LH])
+
 def threeDimPlot(posteriors,weights=None):
     """
     assumes that posteriors is (dim,totalSamples) shaped numpy array
     """
     fig = plt.figure('{}-d plot'.format(dim))
-    ax = fig.add_subplot(111, projection='3d')    
-    ax.scatter(xs=posteriors[0,:],ys=posteriors[1,:],zs=posteriors[2,:],s=0.2)
-    ax.scatter((-1.50,1.50),(1.10,1.10),(0.70,0.70),marker = 'o',color='red',s=20)
-    x,y,z=[],[],[]
-    for i in range(2):
-        x.append(kmeans.cluster_centers_[i][0])
-        y.append(kmeans.cluster_centers_[i][1])
-        z.append(kmeans.cluster_centers_[i][-1])
-    ax.scatter(x,y,z,marker = 'o',color='black',s=20)
-    ax.set_xlim(-2,2)
-    ax.set_ylim(-2,2)
-    ax.set_zlim(0,2)
-    ax.set_xlabel('X axis')
-    ax.set_ylabel('Y axis')
-    ax.set_zlabel('Z axis')
+    ax = fig.add_subplot(111, projection='3d')
+    xp, yp, zp = posteriors[0,:],posteriors[1,:],posteriors[2,:]
+    xyz = np.vstack([xp,yp,zp])
+    color = gaussian_kde_weights(xyz,weights=weights)(xyz)
+    idx = color.argsort()
+    xps,yps,zps,cs,ws = xp[idx],yp[idx],zp[idx],color[idx],weights[idx]
+    scatter = ax.scatter(xs=xps,ys=yps,zs=zps,s=2*ws/np.max(ws),c=cs, alpha=0.5,cmap='hot',label='Weighted Posterior')
+    plt.colorbar(scatter)
+    ax.scatter(xs=actual[...,0],ys=actual[...,1],zs=actual[...,2],marker = '*',color='red',s=200,depthshade=False,label='Actual LH')
+    x , y , z = [] , [] , []
+    for i in range(model_num_LH):
+        x.append(clusterCenterPositions[i][0])
+        y.append(clusterCenterPositions[i][1])
+        z.append(clusterCenterPositions[i][-1])
+    ax.scatter(x,y,z,marker = '*',color='green',s=200,depthshade=False,label='Cluster Estimate')
+    ax.set_xlim(-2,2),ax.set_ylim(-2,2),ax.set_zlim(0,2)
+    ax.set_xlabel('X axis'),ax.set_ylabel('Y axis'),ax.set_zlabel('Z axis')
     ax.set_title('A 3D-Plot of posterior points',weight='bold',size=12)
- 
-def clustering(posteriors, weights=None):
-    ## TODO: incorporate sample weight in the .fit() params!!
+    plt.legend()
+    plt.tight_layout()
+
+def clustering(posteriors,weights=None,extraClusters=6):
     posteriorPoints = posteriors.T
-    kmeans = KMeans(n_clusters=model_num_LH, random_state=0).fit(posteriorPoints, weights)
-    print(kmeans.cluster_centers_)
+    kmeans = KMeans(n_clusters=model_num_LH+extraClusters,max_iter=1000,tol=1E-7,n_init=100).fit(posteriorPoints,weights)
+    clusterCenterPositions = kmeans.cluster_centers_[:model_num_LH]
+    print(clusterCenterPositions)
     print(kmeans.inertia_)
-    return kmeans
+    return clusterCenterPositions , kmeans
     
 def get_posteriors(results):
     ni = results['num_iterations']
@@ -305,24 +336,23 @@ def get_posteriors(results):
         coords = samples[i].Coords
         posteriors[...,i] = coords
     posteriors = np.swapaxes(posteriors, 0, -2)
-    posteriors = posteriors.reshape((dim,model_num_LH*max_iter))
+    posteriors = posteriors.reshape((dim,model_num_LH*ni))
     return posteriors
 
 def get_weights(results):
     ni = results['num_iterations']
     samples = results['samples']
     logZ = results['logZ']
-    weights = [0]*(ni)
+    weights = [0]*ni
     for i in range(ni):
         weights[i] = np.exp(samples[i].logWt - logZ)
-
     weights = weights * model_num_LH
     weights = np.array(weights)
-    print(max(weights))
+    print(weights)
 
     return weights
 
-def get_statistics(results, weights=None):   
+def get_statistics(results,weights=None):   
     ni = results['num_iterations']
     samples = results['samples']
     shape =  samples[0].Coords.shape
@@ -334,23 +364,21 @@ def get_statistics(results, weights=None):
         avgCoords += weights[i] * coords
         sqrCoords += weights[i] * coords * coords
     
-    print("Num of Iterations: %i" %ni)
-    
+    print("Num of Iterations: %i" %ni)    
     print("avgCoords[0]", avgCoords[0])
     
     meanX, sigmaX = avgCoords[0], np.sqrt(sqrCoords[0]-avgCoords[0]*avgCoords[0])
     print("mean(x) = %f, stddev(x) = %f" %(meanX, sigmaX))
-    
-    if dim ==3: 
+
+    if dim==3:
         meanY, sigmaY = avgCoords[1], np.sqrt(sqrCoords[1]-avgCoords[1]*avgCoords[1])
         print("mean(y) = %f, stddev(y) = %f" %(meanY, sigmaY))
-    
+
     meanZ, sigmaZ = avgCoords[-1], np.sqrt(sqrCoords[-1]-avgCoords[-1]*avgCoords[-1])
     print("mean(z) = %f, stddev(z) = %f" %(meanZ, sigmaZ))
-    
     logZ_sdev = results['logZ_sdev']
     print("Evidence: ln(Z) = %g +- %g"%(logZ,logZ_sdev))
-    
+
     # Analyze the changes in x,y,z and evidence for different z values
     statData = []
     statData.append((meanX, sigmaX))
@@ -358,27 +386,28 @@ def get_statistics(results, weights=None):
     statData.append((meanZ, sigmaZ))
     statData.append((logZ, logZ_sdev))
     return statData
-    
+
 def process_results(results):
     """
     return posterior numpy array in shape (numlhouses,dim,ni)
     """
     posteriors = get_posteriors(results)
     weights = get_weights(results)
-    kmeans = clustering(posteriors, weights)
+    clusterCenterPositions , kmeans = clustering(posteriors,weights)
     if model_num_LH==1:
-        statData = get_statistics(results, weights)
+        statData = get_statistics(results,weights)
     else:
         statData = None
+    return posteriors, weights, clusterCenterPositions, kmeans, statData
 
-    return posteriors, weights, kmeans, statData
-
-def do_plots(posteriors):
-    if dim==3: threeDimPlot(posteriors)
+def do_plots(posteriors,weights):
+    plot_weights(weights)
+#    if dim==3: threeDimPlot(posteriors,weights)
     cornerplots(posteriors, weights)
 
 if __name__ == "__main__":
     results = nested_sampling(n, max_iter, sample_from_prior, explore)
-    posteriors, weights, kmeans, statData = process_results(results)
-    do_plots(posteriors)
+
+    posteriors, weights, clusterCenterPositions, kmeans, statData = process_results(results)
+    do_plots(posteriors,weights)
     plt.show()
