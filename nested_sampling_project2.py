@@ -605,9 +605,17 @@ def do_plots(posteriors, weights):
     cornerplots(posteriors, weights)
     
 def compare_models1LH_2LH():
-    """
     
     """
+    Args:
+        None
+    Returns:
+        logZvalues1LH: Evidences for 1LH model
+        logZvalues2LH: Evidences for 2LH model
+    Description:
+        Z_vs_x_2LH.pdf: Plots showing comparision of 1LH and 2Lh model
+    """
+    
     xvalues=np.linspace(0,0.1,11).tolist()
     logZvalues1LH = []
     logZvalues2LH = []
