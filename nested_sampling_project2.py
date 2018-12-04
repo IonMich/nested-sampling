@@ -20,10 +20,19 @@ from mininest import nested_sampling
 from KDEpy import TreeKDE
 
 def generatePositions(lightHCoords, samples_for_eachLH):
+    
     """
-    #lightHCoords=([[1st],[2nd]]) for 2LH
-    #lightHCoords=([[1st]]) for 1LH
+    Args:
+        lightHCoords: A numpy array containing LH coordinates in 2D/3D.
+        samples_for_eachLH: The number of flashes.
+    Returns:
+        (X, Y): The position of flashes observed at the shore.
+    Description:
+        Randomly generates a 'theta' and 'phi' as numpy arrays.
+        Note: lightHCoords=([[1st],[2nd]]) for 2LH.
+        Note: lightHCoords=([[1st]]) for 1LH.
     """
+    
     X=[]
     Y=[]
     for i in range(len(lightHCoords)):
@@ -45,7 +54,7 @@ def generatePositions(lightHCoords, samples_for_eachLH):
         X,Y=np.append(X,[flashesPositionsX]),np.append(Y,[flashesPositionsY])
 
 
-    return X,Y
+    return (X,Y)
 
 n = 100             # number of objects
 max_iter = 50000    # number of iterations
@@ -59,9 +68,10 @@ assert(dim==2 or dim==3)
 N = 1000
 
 # LHactualCoords=([[1.50,0.70]]) # One 2D LightHouse - Actual Coordinates
-# LHactualCoords=([[1.50,1.10,0.70]]) # One LightHouse - Actual Coordinates
+#LHactualCoords=([[1.50,1.10,0.25]]) # One LightHouse - Actual Coordinates
 # LHactualCoords=([[1.50,1.20,0.80],[-1.50,-1.20,0.60]]) #Two LightHouses - Actual Coordinates
 #LHactualCoords=([[1.50,1.20,0.80],[-0.20,0.30,0.20],[-1.50,-1.20,0.60]]) #Three LightHouses - Actual Coordinates
+
 ############# or generate random actual Lhouse positions
 actual_num_LH = 2
 LHactualCoords_transv=np.random.uniform(-2, 2, size=(actual_num_LH, transverseDim))
@@ -70,7 +80,7 @@ LHactualCoords = np.hstack([LHactualCoords_transv,LHactualCoords_depth]).tolist(
 #########################################################################################################
 
 actual = np.array(LHactualCoords)
-print("Actual Coordinates:\n",np.array(LHactualCoords))
+print("Actual lighthouse coordinates:\n",np.array(LHactualCoords))
 
 flashesPositions = generatePositions(LHactualCoords, N)
 
@@ -91,20 +101,15 @@ plt.xlabel('x')
 plt.ylabel('y')
 
 class LHouses():
-    """
-    TESTS:
-    put the following at the begining of the if name==main statement
 
-    myLH = LightHouse(np.array([0.2,0.3,0.4]) )
-    myLHpair = LHouses(np.array([0.2,0.3,0.4]) )
-    myLHpair2 = LHouses(np.array([[0.2,0.3,0.4],[0.5,0.6,0.8]]) )
-    print(myLH.__dict__)
-    print(myLHpair.__dict__)
-    print(myLHpair2.__dict__)
     """
+    Class definition for collection of lighthouses.
+    """
+    
     def __init__(self,unitArray):
         """
-        for 2 lighthouses in 3d, unitArray should be a (2,3) array
+        Initializes the class with the following attributes.
+        Note: For 2 lighthouses in 3D, unitArray should be a (2,3) array.
         """
         configDim = np.size(unitArray)
         assert(configDim%dim==0 and configDim>1)
@@ -113,7 +118,8 @@ class LHouses():
 
     def update(self,unitArray):
         """
-
+        Creates a new instance of the coordinate value.
+        Computes the loglikehood of the coordinate.
         """
         configDim = np.size(unitArray)
         assert(configDim % dim == 0 and configDim>1)
@@ -125,7 +131,7 @@ class LHouses():
 
     def mapUnitToXYZ(self):
         """
-        go from unit coordinates to lighthouse position(s)
+        Converts from unit coordinates to lighthouse position(s)
         """
         self.Coords = np.zeros(self.unitCoords.shape)
         for indexTuple , unitSample in np.ndenumerate(self.unitCoords):
@@ -136,25 +142,28 @@ class LHouses():
 
     def assignlogL(self):
         """
-        assign the attribute
-        # logLikelihood = ln Prob(data | position)
+        Assigns the attribute logLikelihood = ln Prob(data | position)
         """
-#        assert(False) ## waiting for new LH function
         self.logL = logLhoodLHouse(self.Coords)
 
     def copy(self):
         """
-
+        Returns the copy of the instance
         """
         return LHouses(self.unitCoords)
 
 
 def logLhoodLHouse(lightHCoords):
+    
     """
-    logLikelihood function
-     Easterly position
-     Northerly position
+    Args:
+        lightHCoords: Contains the coordinates of a lighthouse.
+    Returns:
+        logL: The log likelihood value for the given argument.
+    Description:
+        Uses specific formula for 2D and 3D case to calculate likelihood.
     """
+
     x = np.array( lightHCoords[...,0])
     z = np.array(lightHCoords[...,-1])
     DX = flashesPositions[0]
@@ -181,27 +190,40 @@ def logLhoodLHouse(lightHCoords):
     return logL
 
 def sample_from_prior():
+    
     """
-
-
+    Args:
+        None.
+    Returns:
+        Obj: An object of the LHouses class.
+    Description:
+        Generates a 2D/3D coordinate and creates an object.
     """
+    
     unitCoords = np.random.uniform(size=(model_num_LH,dim))
     unitCoords = np.squeeze(unitCoords) # if (1,dim) squeeze to (dim,)
     Obj = LHouses(unitCoords)
     return Obj
 
 def explore(Obj,logLstar):
+   
     """
-    # Evolve object within likelihood constraint
-    # Object being evolved
-    # Likelihood constraint L > Lstar
+    Args:
+        Obj: An instance of the LHouses class.
+        logLstar: The least likelihood value used in sampling.
+    Returns:
+        ret: A modified version of Obj.
+    Description:        
+        Performs Markov Chain Monte Carlo (MCMC) to modify the original object.  
+        Object is evolved with likelihood constraint L > Lstar.
     """
-    ret =  Obj.copy()
+    
+    ret =  Obj.copy() 
     step = 0.1   # Initial guess suitable step-size in (0,1)
     accept = 0   # # MCMC acceptances
     reject = 0   # # MCMC rejections
     a = 1.0
-    Try = Obj.copy()          # Trial object
+    Try = Obj.copy()     # Trial object
     for _ in range(20):  # pre-judged number of steps
 
         # Trial object u-w step
@@ -223,13 +245,21 @@ def explore(Obj,logLstar):
         if( accept < reject ):
             step /= np.exp(a / reject)
             a *= 1.5
-#    print(logLstar, accept)
     return ret
 
 def cornerplots(posteriors,weights=None):
+
     """
-    note bandwidth bw=0.01
+    Args:
+        posteriors: A numpy array containing posterior coordinates.
+        weights: A numpy array containing weight distribution for posterior data samples.
+    Returns:
+        None.
+    Description:
+        Plots individually the posterior data for x, y and z.
+        Creates a histogram plot and a scatter plot estimating the LH coordinates.
     """
+    
     pSize = posteriors[...,0].size # total number of posterior coordinates (3 for a single lhouse)
     numLhouses = pSize//dim
     transverseDomain = (-2,2)
@@ -263,7 +293,8 @@ def cornerplots(posteriors,weights=None):
             plt.axvline(x=LHactualCoords[0][2], color='r', linestyle='dashed')
             for k in range(len(LHactualCoords)):
                 plt.axvline(x=LHactualCoords[k][2], color='r', linestyle='dashed') 
-        # joint posteriors
+        
+        # Joint posteriors
         for j in range(i):
             subPltIndex = i*pSize + 1 + j
             plt.subplot(pSize,pSize,subPltIndex)
@@ -271,9 +302,11 @@ def cornerplots(posteriors,weights=None):
             xy = np.vstack([xp,yp]).T
             kde = TreeKDE(kernel='gaussian', norm=2,bw=0.05)
             grid, points = kde.fit(xy,weights).evaluate(2**8)
+            
             # The grid is of shape (obs, dims), points are of shape (obs, 1)
             x, y = np.unique(grid[:, 0]), np.unique(grid[:, 1])
             z = points.reshape(2**8, 2**8).T
+            
             # Plot the kernel density estimate
             ax = plt.gca()
             ax.contourf(x, y, z, 1000, cmap="hot")
@@ -290,6 +323,16 @@ def cornerplots(posteriors,weights=None):
     plt.tight_layout()
     
 def plot_weights(weights):
+        
+    """
+    Args:
+        weights: A numpy array containing weight distribution for posterior data samples.
+    Returns:
+        None.
+    Description:
+        Plots the weight distribution vs number of iteration.
+    """
+    
     plt.figure('Weights')
     plt.title("Weights distribution")
     plt.xlabel('Number of iterations')
@@ -298,9 +341,17 @@ def plot_weights(weights):
     plt.plot(weights[:len(weights)//model_num_LH])
 
 def threeDimPlot(posteriors,weights=None):
+    
     """
-    assumes that posteriors is (dim,totalSamples) shaped numpy array
+    Args:
+        posteriors: A numpy array containing posterior coordinates.
+        weights: A numpy array containing weight distribution for posterior data samples.
+    Returns:
+        None.
+    Description:
+        Plots the actual LH coordinate and the estimated LH coordinates in a 3D box. 
     """
+    
     fig = plt.figure('{}-D plot'.format(dim))
     ax = fig.add_subplot(111, projection='3d')
     xp, yp, zp = posteriors[0,:],posteriors[1,:],posteriors[2,:]
@@ -344,6 +395,21 @@ def threeDimPlot(posteriors,weights=None):
     plt.tight_layout()
 
 def clustering(posteriors,weights=None,extraClusters=20):
+    
+    """
+    Args:
+        posteriors: A numpy array containing posterior coordinates.
+        weights: A numpy array containing weight distribution for posterior data samples.
+        extraClusters: An average calculator used for higher accuracy.
+    Returns:
+        clusterCenterPositions: The mean value of the estimated LH coordinate.
+        kmeans: An object instance that fits the data according to the cluster.
+    Description:
+        Required for multiple lighthouses.
+        Determines LH positions by finely differentiating the posterior values.
+        Performs clustering 20 times to achieve better estimate.   
+    """
+    
     posteriorPoints = posteriors.T
     kmeans = KMeans(n_clusters=model_num_LH,max_iter=1000,tol=1E-7,n_init=100).fit(posteriorPoints,weights)
     clusterCenterPositions = kmeans.cluster_centers_
@@ -354,12 +420,22 @@ def clustering(posteriors,weights=None,extraClusters=20):
         idx = np.argmin(np.sum(np.abs(clusterCenterPositions[i] - clusterCenterPositions2),axis=1))
         clusterCenterPositions[i] = clusterCenterPositions2[idx]
 
-    print("Cluster Positions:")
+    print("Cluster positions:")
     print(clusterCenterPositions)
-    print("Score of clusters: ",kmeans.inertia_)
     return clusterCenterPositions , kmeans
     
 def get_posteriors(results):
+    
+    """
+    Args:
+        results: A dictionary data returned by the mininest function.
+    Returns:
+        posteriors: A numpy array containing x,y,z coordinates.
+    Description:
+        Determines the dimension of the array required for posterioirs.
+        Extracts coordinate from results and appends them to posteriors.
+    """
+    
     ni = results['num_iterations']
     samples = results['samples']
     shape =  samples[0].Coords.shape
@@ -372,6 +448,16 @@ def get_posteriors(results):
     return posteriors
 
 def get_weights(results):
+    
+    """
+    Args:
+        results: A dictionary data returned by the mininest function.
+    Returns:
+        weights: A numpy array containing weight distribution in the posterior data samples.
+    Description:
+        Extracts the evidence values from results.
+    """
+    
     ni = results['num_iterations']
     samples = results['samples']
     logZ = results['logZ']
@@ -383,7 +469,19 @@ def get_weights(results):
 
     return weights
 
-def get_statistics(results,weights=None):   
+def get_statistics(results,weights=None):
+    
+    """
+    Args:
+        results: A dictionary data returned by the mininest function.
+        weights: A numpy array containing weight distribution for posterior data samples.
+    Returns:
+        statData: A list of tuples containing statistical data.
+    Description:
+        Extracts the mean and standard deviation from results.
+        Prints the extracted data.
+    """
+    
     ni = results['num_iterations']
     samples = results['samples']
     shape =  samples[0].Coords.shape
@@ -394,12 +492,9 @@ def get_statistics(results,weights=None):
         coords = samples[i].Coords
         avgCoords += weights[i] * coords
         sqrCoords += weights[i] * coords * coords
-    
-    print("Num of Iterations: %i" %ni)    
-    print("avgCoords[0]", avgCoords[0])
-    
+        
     meanX, sigmaX = avgCoords[0], np.sqrt(sqrCoords[0]-avgCoords[0]*avgCoords[0])
-    print("mean(x) = %f, stddev(x) = %f" %(meanX, sigmaX))
+    print("\nmean(x) = %f, stddev(x) = %f" %(meanX, sigmaX))
 
     if dim==3:
         meanY, sigmaY = avgCoords[1], np.sqrt(sqrCoords[1]-avgCoords[1]*avgCoords[1])
@@ -418,28 +513,102 @@ def get_statistics(results,weights=None):
     statData.append((logZ, logZ_sdev))
     return statData
 
+def z_test():
+    
+    """
+    Args:
+        None
+    Returns:
+        None.
+    Description:
+        Determine the standard deviation for different z coordinates of lighthouse.
+        Vary the z coord to analyze changes in the uncertainty of evidence.
+    """
+    
+    print("\n***TEST: Change in posterior data while varying z between 0 to 2***")
+    zVals = [0.01, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0] 
+    global flashesPositions
+    initPositions = flashesPositions
+
+    x, y = LHactualCoords[0][0], LHactualCoords[0][1]
+    dataStat = [[] for i in range(4)]
+    for z in zVals:
+        print("\nLighthouse at a height(z) = %f" %z)
+        flashesPositions = generatePositions([[x, y, z]], N)
+        print("\nActual lighthouse coordinates:\n",[x,y,z])
+        results = nested_sampling(n, max_iter, sample_from_prior, explore)
+        processData = process_results(results)[4]
+        for k in range(4):
+            dataStat[k].append(processData[k])
+    sigmaZ, sigmaEvid = [], [] 
+    for i in range (len(zVals)):
+        sigmaZ.append(dataStat[2][i][1])
+        sigmaEvid.append(dataStat[3][i][1])
+    
+    plt.figure("Uncertainty change for z")
+    plt.title("Uncertainty in measured z")
+    plt.plot(zVals, sigmaZ, 'b')
+    plt.xlabel("z")
+    plt.ylabel("sigmaZ")
+    plt.show()
+    
+    plt.figure("Uncertainty change for evidence")
+    plt.title("Uncertainty in measured evidence")
+    plt.plot(zVals, sigmaEvid, 'r')
+    plt.xlabel("z")
+    plt.ylabel("sigmaEvidence")
+    plt.show()
+
+    flashesPositions = initPositions
+    
 def process_results(results):
+    
     """
-    return posterior numpy array in shape (numlhouses,dim,ni)
+    Args:
+        results: A dictionary data returned by the mininest function.
+    Returns:
+        posteriors: A numpy array containing posterior coordinates.
+        weights: A numpy array containing weight distribution for posterior data samples.
+        clusterCenterPositions: The mean value of the estimated LH coordinate.
+        kmeans: An object instance that fits the data according to the cluster.
+        statData: A list of tuples containing statistical data.
+    Description:
+        Serves as a hub for the main function.
     """
+    
     posteriors = get_posteriors(results)
     weights = get_weights(results)
     clusterCenterPositions , kmeans = clustering(posteriors,weights)
-    if model_num_LH==1:
+    if len(LHactualCoords)==1:
         statData = get_statistics(results,weights)
     else:
         statData = None
     return posteriors, weights, clusterCenterPositions, kmeans, statData
 
-def do_plots(posteriors,weights):
-    print("Generating Plots. This might take some time...")
+def do_plots(posteriors, weights):
+    
+    """
+    Args:
+        posteriors: A numpy array containing posterior coordinates.
+        weights: A numpy array containing weight distribution for posterior data samples.
+    Returns:
+        None
+    Description:
+        Plot the weight distribution.
+        Plot the 3D graph for posterior for 3D case.
+        Plot the cornerplot to show posterior data.
+    """
+    
+    print("\nGenerating Plots. This might take some time...")
     plot_weights(weights)
     if dim==3: threeDimPlot(posteriors,weights)
     cornerplots(posteriors, weights)
 
 if __name__ == "__main__":
     results = nested_sampling(n, max_iter, sample_from_prior, explore)
-
     posteriors, weights, clusterCenterPositions, kmeans, statData = process_results(results)
+
     do_plots(posteriors,weights)
     plt.show()
+    
+    if len(LHactualCoords)==1: z_test()
