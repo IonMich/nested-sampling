@@ -413,7 +413,7 @@ def get_statistics(results,weights=None):
     # Analyze the changes in x,y,z and evidence for different z values
     statData = []
     statData.append((meanX, sigmaX))
-    statData.append((meanY, sigmaY))
+    if dim==3: statData.append((meanY, sigmaY))
     statData.append((meanZ, sigmaZ))
     statData.append((logZ, logZ_sdev))
     return statData
