@@ -603,6 +603,56 @@ def do_plots(posteriors, weights):
     plot_weights(weights)
     if dim==3: threeDimPlot(posteriors,weights)
     cornerplots(posteriors, weights)
+    
+def compare_models1LH_2LH():
+    
+    """
+    Args:
+        None
+    Returns:
+        logZvalues1LH: Evidences for 1LH model
+        logZvalues2LH: Evidences for 2LH model
+    Description:
+        Z_vs_x_2LH.pdf: Plots showing comparision of 1LH and 2Lh model
+    """
+    
+    xvalues=np.linspace(0,0.1,11).tolist()
+    logZvalues1LH = []
+    logZvalues2LH = []
+    global LHactualCoords,model_num_LH,flashesPositions
+    initLHact=LHactualCoords
+    initmodel_num=model_num_LH
+    initflashes=flashesPositions
+    for i,values in enumerate(xvalues):
+        print("Current separation: {}".format(2*values))
+        LHactualCoords[0][0]=values
+        LHactualCoords[1][0]=-values
+        flashesPositions = generatePositions(LHactualCoords, N)
+        print(LHactualCoords)
+        model_num_LH=1
+        results = nested_sampling(n, max_iter, sample_from_prior, explore)
+#        posteriors, kmeans, statData = process_results(results)
+        logZ = results['logZ']
+        logZ_sdev = results['logZ_sdev']
+        print("logZ for {} Lhouse: {} +- {}".format(model_num_LH,logZ,logZ_sdev))
+        logZvalues1LH.append(logZ)
+        model_num_LH=2
+        results = nested_sampling(n, max_iter, sample_from_prior, explore)
+#        posteriors, kmeans, statData = process_results(results)
+        logZ = results['logZ']
+        logZ_sdev = results['logZ_sdev']
+        print("logZ for {} Lhouse: {} +- {}".format(model_num_LH,logZ,logZ_sdev))
+        logZvalues2LH.append(logZ)
+    LHactualCoords=initLHact
+    model_num_LH=initmodel_num
+    flashesPositions=initflashes
+    plt.figure()
+    plt.plot(2*xvalues,logZvalues2LH-logZvalues1LH,'r-.')
+    plt.xlabel('Separation between sources')
+    plt.ylabel('log(Ratio of Evidences)')
+    plt.suptitle('Comparision of Evidences for 1LH and 2LH models')
+    plt.savefig('Z_vs_x_2LH.pdf')
+    return logZvalues1LH, logZvalues2LH
 
 if __name__ == "__main__":
     results = nested_sampling(n, max_iter, sample_from_prior, explore)
