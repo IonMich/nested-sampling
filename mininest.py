@@ -97,7 +97,7 @@ def nested_sampling(n, max_iter, sample_from_prior, explore):
         logwidth -= 1.0 / n;
 
         if nest > 2 * n*H + 1:
-            print("Finished mininest at {} iterations".format(nest))
+            print("\nFinished mininest at {} iterations\n".format(nest))
             break
     else:
         print("Something went wrong. Try increasing the max number of iterations.")
