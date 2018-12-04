@@ -283,7 +283,7 @@ def cornerplots(posteriors,weights=None):
             plt.axvline(x=LHactualCoords[0][0], color='r', linestyle='dashed')
             for k in range(len(LHactualCoords)):
                 plt.axvline(x=LHactualCoords[k][0], color='r', linestyle='dashed')
-        elif i==1:
+        elif i==1 and dim==3:
             plt.title("Y Posterior Data")
             plt.axvline(x=LHactualCoords[0][1], color='r', linestyle='dashed')
             for k in range(len(LHactualCoords)):
